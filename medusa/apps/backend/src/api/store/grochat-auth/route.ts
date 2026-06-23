@@ -5,6 +5,12 @@ import { Pool } from "pg"
 import { randomUUID } from "crypto"
 import { checkRateLimit } from "../../lib/rate-limit"
 
+// Minimal type for customer module service used in this route
+interface CustomerModuleService {
+  listCustomers(filters: { email: string }, options: { take: number }): Promise<any[]>
+  createCustomers(data: { email: string; first_name: string; metadata: Record<string, unknown> }): Promise<any>
+}
+
 type GroChatClaims = {
   user_id: number
   username: string
@@ -43,14 +49,14 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     const jwtSecret = http.jwtSecret
     // Find or create Medusa customer by email
     // In Medusa v2, modules are registered by their module name
-    const customerModuleService = req.scope.resolve("customer")
-    let [customer] = await (customerModuleService as any).listCustomers(
+    const customerModuleService = req.scope.resolve("customer") as CustomerModuleService
+    let [customer] = await customerModuleService.listCustomers(
       { email: claims.email },
       { take: 1 }
     )
 
     if (!customer) {
-      customer = await (customerModuleService as any).createCustomers({
+      customer = await customerModuleService.createCustomers({
         email: claims.email,
         first_name: claims.username || claims.email.split("@")[0],
         metadata: { grochat_user_id: claims.user_id, grochat_username: claims.username },

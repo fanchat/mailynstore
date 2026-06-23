@@ -29,6 +29,7 @@ export class SmtpNotificationService extends AbstractNotificationProviderService
 
   constructor({ logger }: InjectedDependencies, options: SmtpNotificationOptions) {
     super()
+    SmtpNotificationService.validateOptions(options)
     this.logger_ = logger
     this.options_ = options
 

@@ -16,10 +16,9 @@ export default async function passwordResetHandler({
 
   const { entity_id, actor_type, token } = data
 
-  // Build the reset password URL
-  const adminOrigins =
-    process.env.ADMIN_CORS?.split(",").map((s) => s.trim()) || []
-  const baseUrl = adminOrigins[0] || "http://localhost:9000"
+  // Build the reset password URL from a dedicated env var
+  const baseUrl =
+    process.env.PASSWORD_RESET_URL || process.env.STOREFRONT_URL || "http://localhost:8000"
 
   const resetUrl = `${baseUrl}/app/reset-password?token=${encodeURIComponent(token)}&email=${encodeURIComponent(entity_id)}`
 
@@ -65,7 +64,7 @@ export default async function passwordResetHandler({
     })
   } catch (error: any) {
     console.error(`[password-reset] Failed to send notification: ${error.message}`)
-    throw error
+    // Don't re-throw to avoid event bus retry storms
   }
 }
 

@@ -25,7 +25,7 @@ function CartMismatchBanner(props: {
 
       await transferCart()
     } catch {
-      setActionText("Run transfer again")
+      setActionText("Transfer failed, please try again")
       setIsPending(false)
     }
   }

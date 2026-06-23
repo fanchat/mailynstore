@@ -12,10 +12,12 @@ type MyInformationProps = {
 
 const ProfilePassword: React.FC<MyInformationProps> = ({ customer }) => {
   const [successState, setSuccessState] = React.useState(false)
+  const [errorState, setErrorState] = React.useState<string | null>(null)
 
-  // TODO: Add support for password updates
   const updatePassword = async () => {
-    toast.info("Password update is not implemented")
+    setErrorState(null)
+    setSuccessState(false)
+    toast.info("Password update is not supported yet")
   }
 
   const clearState = () => {
