@@ -76,14 +76,10 @@ export async function signup(_currentState: unknown, formData: FormData) {
 
     await setAuthToken(token as string)
 
-    const headers = {
-      ...(await getAuthHeaders()),
-    }
-
     const { customer: createdCustomer } = await sdk.store.customer.create(
       customerForm,
       {},
-      headers
+      { authorization: `Bearer ${token}` }
     )
 
     const loginToken = await sdk.auth.login("customer", "emailpass", {
@@ -141,6 +137,41 @@ export async function signout(countryCode: string) {
   revalidateTag(cartCacheTag)
 
   redirect(`/${countryCode}/account`)
+}
+
+export async function deleteAccount(countryCode: string) {
+  const authHeaders = await getAuthHeaders()
+
+  if (!authHeaders || !("authorization" in authHeaders)) {
+    return { error: "not logged in" }
+  }
+
+  const headers = {
+    ...authHeaders,
+  }
+
+  try {
+    await sdk.client.fetch(`/store/customers/me`, {
+      method: "DELETE",
+      headers,
+    })
+  } catch (error) {
+    return { error: String(error) }
+  }
+
+  // Clean up session — same as signout()
+  await sdk.auth.logout()
+  await removeAuthToken()
+
+  const customerCacheTag = await getCacheTag("customers")
+  revalidateTag(customerCacheTag)
+
+  await removeCartId()
+
+  const cartCacheTag = await getCacheTag("carts")
+  revalidateTag(cartCacheTag)
+
+  redirect(`/${countryCode}`)
 }
 
 export async function transferCart() {

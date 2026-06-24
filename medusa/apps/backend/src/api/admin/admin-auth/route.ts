@@ -1,5 +1,5 @@
 import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { scryptSync, timingSafeEqual } from "crypto"
+import { scryptSync, timingSafeEqual, createHash, createHmac } from "crypto"
 import { ContainerRegistrationKeys } from "@medusajs/utils"
 import { Pool } from "pg"
 import { checkRateLimit } from "../../lib/rate-limit"
@@ -7,18 +7,24 @@ import { SignJWT } from "jose"
 
 function verifyScrypt(password: string, storedB64: string): boolean {
   const raw = Buffer.from(storedB64, "base64")
-  let off = 0
-  const magic = raw.slice(off, off + 7).toString()
-  if (magic !== "scrypt\u0000") return false
-  off += 7
-  const N = raw.readUInt32LE(off); off += 4
-  const r = raw.readUInt32LE(off); off += 4
-  const p = raw.readUInt32LE(off); off += 4
-  const saltLen = raw.readUInt32LE(off); off += 4
-  const salt = raw.subarray(off, off + saltLen); off += saltLen
-  const expectedHash = raw.subarray(off, off + 32)
-  const actualHash = scryptSync(password, salt, 32, { N, r, p })
-  return timingSafeEqual(actualHash, expectedHash)
+  if (raw.length !== 96) return false
+  const magic = raw.slice(0, 6).toString()
+  if (magic !== "scrypt") return false
+  const logN = raw.readUInt8(7)
+  const N = Math.pow(2, logN)
+  const r = raw.readUInt32BE(8)
+  const p = raw.readUInt32BE(12)
+  const salt = raw.subarray(16, 48)
+  const checksum = raw.subarray(48, 64)
+  const expectedHmac = raw.subarray(64, 96)
+  const computedChecksum = createHash('sha256').update(raw.subarray(0, 48)).digest().subarray(0, 16)
+  if (!timingSafeEqual(computedChecksum, checksum)) return false
+  let hmacKey: Buffer
+  try {
+    hmacKey = scryptSync(password, salt, 64, { N, r, p, maxmem: 256 * 1024 * 1024 })
+  } catch { return false }
+  const computedHmac = createHmac('sha256', hmacKey.subarray(32)).update(raw.subarray(0, 64)).digest()
+  return timingSafeEqual(computedHmac, expectedHmac)
 }
 
 export async function POST(req: MedusaRequest, res: MedusaResponse) {

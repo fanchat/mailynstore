@@ -1,8 +1,11 @@
 "use client"
 
 import React, { useState } from "react"
+import { useParams } from "next/navigation"
+import { deleteAccount } from "@lib/data/customer"
 
 const ProfileDeleteAccount = () => {
+  const { countryCode } = useParams() as { countryCode: string }
   const [step, setStep] = useState<0 | 1 | 2>(0) // 0=隐藏, 1=第一次确认, 2=第二次确认
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState("")
@@ -10,20 +13,17 @@ const ProfileDeleteAccount = () => {
   const handleDelete = async () => {
     setDeleting(true)
     setError("")
-    try {
-      const res = await fetch("/api/account/delete", { method: "POST" })
-      const data = await res.json()
-      if (!res.ok) {
-        setError(data.error || "删除失败")
-        setDeleting(false)
-        return
-      }
-      // 跳转到商城（硬跳转，确保清理完 cookie 后重定向）
-      window.location.href = data.redirect || "/store"
-    } catch (err: any) {
-      setError(err.toString())
+
+    // deleteAccount calls DELETE /store/customers/me,
+    // cleans up session, then redirects to home on success.
+    // On error it returns { error: string }.
+    const result = await deleteAccount(countryCode)
+
+    if (result && "error" in result) {
+      setError(result.error)
       setDeleting(false)
     }
+    // If no error, the server action redirects — we never reach here
   }
 
   if (step === 0) {
