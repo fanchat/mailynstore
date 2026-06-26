@@ -49,6 +49,19 @@
   }
 }
 
+/* Chatwoot widget position - top right */
+.woot-widget-holder {
+  top: 60px !important;
+  bottom: auto !important;
+  right: 24px !important;
+}
+
+.woot-widget-holder iframe,
+.woot--bubble-holder {
+  top: 0 !important;
+  bottom: auto !important;
+}
+
 @layer components {
   .content-container {
     @apply max-w-[1440px] w-full mx-auto px-6;

@@ -11,3 +11,7 @@ package-lock.json
 yarn.lock
 *.log
 .DS_Store
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+.yarn/

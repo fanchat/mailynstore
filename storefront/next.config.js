@@ -12,6 +12,7 @@ const S3_PATHNAME = process.env.MEDUSA_CLOUD_S3_PATHNAME
  * @type {import('next').NextConfig}
  */
 const nextConfig = {
+  devIndicators: false,
   reactStrictMode: true,
   logging: {
     fetches: {
@@ -56,6 +57,14 @@ const nextConfig = {
           ]
         : []),
     ],
+  },
+  async rewrites() {
+    return [
+      {
+        source: "/uploads/:path*",
+        destination: `${process.env.MEDUSA_BACKEND_URL || "http://localhost:9000"}/uploads/:path*`,
+      },
+    ]
   },
 }
 
