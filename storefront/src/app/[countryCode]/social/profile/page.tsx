@@ -797,9 +797,13 @@ function WorkEditModal({
               value={services}
               onChange={(e) => setServices(e.target.value)}
               rows={2}
-              placeholder="用逗号或顿号分隔多个服务项目"
+              placeholder="例：家电维修、空调、面包、散养土鸡"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400 resize-none"
             />
+            <div className="text-xs text-amber-600 mt-1 leading-relaxed">
+              💡 建议用短词、常用词，别人搜什么你就写什么<br />
+              比如：空调维修、家电清洗、散养土鸡、草莓
+            </div>
           </div>
         </div>
 
