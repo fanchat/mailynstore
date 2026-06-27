@@ -63,7 +63,7 @@ async function proxy(req: NextRequest) {
         { status: 400 }
       )
     }
-  } else if (method === "POST" || method === "PUT" || method === "DELETE") {
+  } else if (method === "POST" || method === "PUT" || method === "PATCH" || method === "DELETE") {
     // JSON body: use existing logic
     headers["Content-Type"] = "application/json"
     try {

@@ -17,7 +17,7 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
     try {
       const received = await pool.query(
         `SELECT fr.id, fr.customer_id as requester_id, fr.status, fr.created_at,
-                c.nickname, c.avatar, c.email
+                c.nickname, c.first_name, c.last_name, c.avatar, c.email
          FROM friend_requests fr
          JOIN customer c ON c.id = fr.customer_id
          WHERE fr.target_customer_id = $1 AND fr.status = $2

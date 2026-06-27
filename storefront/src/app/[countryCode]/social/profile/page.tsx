@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
+import MediaViewer from "../components/MediaViewer"
+import ConfirmDialog from "../components/ConfirmDialog"
 
 export default function SocialProfilePage() {
   const [profile, setProfile] = useState<any>(null)
@@ -15,6 +17,9 @@ export default function SocialProfilePage() {
   const [loadingPosts, setLoadingPosts] = useState(true)
   const [activeMenuId, setActiveMenuId] = useState<number | null>(null)
   const [editingPost, setEditingPost] = useState<any | null>(null)
+  const [viewerState, setViewerState] = useState<{ postId: number; index: number } | null>(null)
+  const [toastMsg, setToastMsg] = useState("")
+  const [confirmDeletePost, setConfirmDeletePost] = useState<any | null>(null)
 
   // Edit modals state
   const [showPersonalEdit, setShowPersonalEdit] = useState(false)
@@ -34,7 +39,7 @@ export default function SocialProfilePage() {
   const loadMyPosts = async () => {
     setLoadingPosts(true)
     try {
-      const res = await fetch("/api/social/posts?scope=mine&limit=20")
+      const res = await fetch("/api/social/posts?scope=mine&type=personal&limit=20")
       if (res.ok) {
         const d = await res.json()
         setPrivatePosts(d.data || d)
@@ -61,23 +66,35 @@ export default function SocialProfilePage() {
 
   const handlePublishTo = async (post: any, type: string) => {
     try {
-      const res = await fetch(`/api/social/posts/${post.id}`, {
-        method: "PATCH",
+      const res = await fetch("/api/social/posts", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type }),
+        body: JSON.stringify({
+          type,
+          content: post.content || "",
+          media_urls: post.media_urls || [],
+        }),
       })
-      if (res.ok) loadMyPosts()
-      else alert("发布失败")
-    } catch { alert("操作失败") }
+      if (res.ok) {
+        const msg = type === "friend" ? "已发布到生活圈" : "已发布到工作圈"
+        setToastMsg(msg)
+        setTimeout(() => setToastMsg(""), 2000)
+        loadMyPosts()
+      } else {
+        const d = await res.json()
+        setToastMsg(d.error || "发布失败")
+        setTimeout(() => setToastMsg(""), 2000)
+      }
+    } catch { setToastMsg("操作失败"); setTimeout(() => setToastMsg(""), 2000) }
   }
 
   const handleDeletePost = async (post: any) => {
-    if (!confirm("确认删除这条动态？")) return
     try {
       const res = await fetch(`/api/social/posts/${post.id}`, { method: "DELETE" })
       if (res.ok) loadMyPosts()
       else alert("删除失败")
     } catch { alert("网络错误") }
+    setConfirmDeletePost(null)
   }
 
   const handleEditSave = async (postId: number, data: any) => {
@@ -179,8 +196,15 @@ export default function SocialProfilePage() {
   )
 
   return (
-    <div className="max-w-lg mx-auto px-4 py-4">
-      {/* Avatar */}
+      <div className="max-w-lg mx-auto px-4 py-4">
+        {/* Toast */}
+        {toastMsg && (
+          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-gray-800 text-white text-sm px-4 py-2 rounded-full shadow-lg animate-fade-in">
+            {toastMsg}
+          </div>
+        )}
+
+        {/* Profile header */}
       <div className="bg-white rounded-lg shadow-sm p-6 flex flex-col items-center">
         <div className="relative">
           <div
@@ -288,13 +312,12 @@ export default function SocialProfilePage() {
         )}
         {profile.gender !== undefined && profile.gender > 0 && (
           <div className="text-sm text-gray-600 flex items-center gap-1.5 mb-1.5">
-            <span>{profile.gender === 1 ? "♂️" : "♀️"}</span>
-            {profile.gender === 1 ? "男" : "女"}
+            {Number(profile.gender) === 1 ? "男" : "女"}
           </div>
         )}
         {profile.birthday && (
           <div className="text-sm text-gray-600 flex items-center gap-1.5 mb-1.5">
-            <span>🎂</span> {profile.birthday}
+            <span>🎂</span> {profile.birthday.split('T')[0]}
           </div>
         )}
         {!profile.region && (profile.gender === undefined || profile.gender === 0) && !profile.birthday && (
@@ -344,20 +367,16 @@ export default function SocialProfilePage() {
                             <button onClick={() => { setActiveMenuId(null); handleMoveUp(post) }} className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2">
                               ⬆ 上移一位
                             </button>
-                            {post.type !== 'friend' && (
-                              <button onClick={() => { setActiveMenuId(null); handlePublishTo(post, 'friend') }} className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2">
-                                🌐 发布到朋友圈
-                              </button>
-                            )}
-                            {post.type !== 'work' && (
-                              <button onClick={() => { setActiveMenuId(null); handlePublishTo(post, 'work') }} className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2">
+                            <button onClick={() => { setActiveMenuId(null); handlePublishTo(post, 'friend') }} className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2">
+                              🌐 发布到生活圈
+                            </button>
+                            <button onClick={() => { setActiveMenuId(null); handlePublishTo(post, 'work') }} className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2">
                                 💼 发布到工作圈
                               </button>
-                            )}
                             <button onClick={() => { setActiveMenuId(null); setEditingPost(post) }} className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2">
                               ✏️ 编辑
                             </button>
-                            <button onClick={() => { setActiveMenuId(null); handleDeletePost(post) }} className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2 text-red-500">
+                            <button onClick={() => { setActiveMenuId(null); setConfirmDeletePost(post) }} className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2 text-red-500">
                               🗑 删除
                             </button>
                           </div>
@@ -372,9 +391,16 @@ export default function SocialProfilePage() {
                     {post.media_urls.map((url: string, i: number) => {
                       const isVideo = /\.(mp4|mov|avi|webm)$/i.test(url)
                       return isVideo ? (
-                        <video key={i} src={url} className="w-full aspect-square object-cover rounded" />
+                        <button key={i} onClick={() => setViewerState({ postId: post.id, index: i })} className="relative aspect-square overflow-hidden rounded group">
+                          <video src={url} className="w-full h-full object-cover" muted preload="metadata" />
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition">
+                            <div className="w-12 h-12 bg-white/80 rounded-full flex items-center justify-center text-gray-800 text-xl">▶</div>
+                          </div>
+                        </button>
                       ) : (
-                        <img key={i} src={url} alt="" className="w-full aspect-square object-cover rounded" />
+                        <button key={i} onClick={() => setViewerState({ postId: post.id, index: i })} className="aspect-square overflow-hidden rounded">
+                          <img src={url} alt="" className="w-full h-full object-cover hover:scale-105 transition-transform" />
+                        </button>
                       )
                     })}
                   </div>
@@ -390,6 +416,22 @@ export default function SocialProfilePage() {
           </div>
         )}
       </div>
+
+      {/* Media viewer overlay */}
+      {viewerState !== null && (() => {
+        const post = privatePosts.find((p: any) => p.id === viewerState.postId)
+        if (!post?.media_urls?.length) return null
+        return (
+          <MediaViewer
+            urls={post.media_urls.map((url: string) => ({
+              url,
+              isVideo: /\.(mp4|mov|avi|webm)$/i.test(url),
+            }))}
+            initialIndex={viewerState.index}
+            onClose={() => setViewerState(null)}
+          />
+        )
+      })()}
 
       {/* ── Post Edit Modal ── */}
       {editingPost && (
@@ -417,6 +459,14 @@ export default function SocialProfilePage() {
           onSaved={() => { setShowWorkEdit(false); loadProfile() }}
         />
       )}
+
+      {/* ── Delete Confirm ── */}
+      <ConfirmDialog
+        open={confirmDeletePost !== null}
+        message="确认删除这条动态？"
+        onConfirm={() => confirmDeletePost && handleDeletePost(confirmDeletePost)}
+        onCancel={() => setConfirmDeletePost(null)}
+      />
     </div>
   )
 }
@@ -512,7 +562,7 @@ function PersonalEditModal({
   const [signature, setSignature] = useState(profile.signature || "")
   const [region, setRegion] = useState(profile.region || "")
   const [gender, setGender] = useState<number>(profile.gender || 0)
-  const [birthday, setBirthday] = useState(profile.birthday || "")
+  const [birthday, setBirthday] = useState(profile.birthday?.split('T')[0] || "")
   const [saving, setSaving] = useState(false)
 
   const handleSave = async () => {

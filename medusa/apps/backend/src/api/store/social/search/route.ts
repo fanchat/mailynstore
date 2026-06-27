@@ -2,14 +2,14 @@ import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { Pool } from "pg"
 import { getCustomerId } from "../utils"
 
-// GET /store/social/search?q=keyword — search users by email or nickname
+// GET /store/social/search?q=email — search users by exact email (unique ID)
 export async function GET(req: MedusaRequest, res: MedusaResponse) {
   const customerId = getCustomerId(req)
   if (!customerId) {
     return res.status(401).json({ error: "unauthorized" })
   }
 
-  const q = (req.query.q as string || "").trim()
+  const q = (req.query.q as string || "").trim().toLowerCase()
   if (q.length < 1) {
     return res.status(400).json({ error: "query too short" })
   }
@@ -21,10 +21,10 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
       const result = await pool.query(
         `SELECT id, email, nickname, avatar
          FROM customer
-         WHERE (nickname ILIKE $1 OR email ILIKE $1)
+         WHERE email = $1
            AND id != $2
-         LIMIT 10`,
-        [`%${q}%`, customerId]
+         LIMIT 1`,
+        [q, customerId]
       )
       return res.json({ data: result.rows })
     } finally {

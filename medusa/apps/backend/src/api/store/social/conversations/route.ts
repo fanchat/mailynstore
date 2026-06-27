@@ -72,7 +72,20 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
          ORDER BY c.updated_at DESC NULLS LAST`,
         [customerId]
       )
-      return res.json({ data: result.rows })
+
+      // Fetch member info for each conversation
+      const rows = []
+      for (const row of result.rows) {
+        const members = await pool.query(
+          `SELECT cm.customer_id as id, c.email, c.nickname, c.avatar
+           FROM conversation_members cm
+           JOIN customer c ON c.id = cm.customer_id
+           WHERE cm.conversation_id = $1`,
+          [row.id]
+        )
+        rows.push({ ...row, members: members.rows })
+      }
+      return res.json({ data: rows })
     } finally {
       await pool.end()
     }

@@ -15,3 +15,4 @@ yarn.lock
 *.sqlite-wal
 *.sqlite-shm
 .yarn/
+medusa.db

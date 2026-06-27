@@ -2,11 +2,13 @@
 
 import { useState, useRef } from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
+import { getVideoThumbnail } from "../components/MediaViewer"
 
 interface MediaItem {
   url: string
   file: File
   preview: string // data URL for preview
+  thumbnail?: string // video first-frame or empty for images
 }
 
 export default function NewPostPage() {
@@ -38,6 +40,8 @@ export default function NewPostPage() {
         }
         // Create preview
         const preview = URL.createObjectURL(file)
+        // Get video thumbnail if video
+        const thumbnail = file.type.startsWith("video/") ? await getVideoThumbnail(file) : undefined
         // Upload to backend
         const formData = new FormData()
         formData.append("file", file)
@@ -49,7 +53,7 @@ export default function NewPostPage() {
           const data = await res.json()
           setMediaItems((prev) => [
             ...prev,
-            { url: data.url, file, preview },
+            { url: data.url, file, preview, thumbnail },
           ])
         } else {
           alert(`${file.name} 上传失败`)
@@ -114,7 +118,14 @@ export default function NewPostPage() {
               const isVideo = item.file.type.startsWith("video/")
               return (
                 <div key={i} className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
-                  {isVideo ? (
+                  {isVideo && item.thumbnail ? (
+                    <div className="relative w-full h-full">
+                      <img src={item.thumbnail} alt="" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-10 h-10 bg-black/50 rounded-full flex items-center justify-center text-white">▶</div>
+                      </div>
+                    </div>
+                  ) : isVideo ? (
                     <video src={item.preview} className="w-full h-full object-cover" />
                   ) : (
                     <img src={item.preview} alt="" className="w-full h-full object-cover" />

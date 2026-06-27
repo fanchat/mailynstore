@@ -1,8 +1,10 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useSearchParams } from "next/navigation"
 import Link from "next/link"
+import MediaViewer from "./components/MediaViewer"
+import ConfirmDialog from "./components/ConfirmDialog"
 
 interface Post {
   id: number
@@ -40,6 +42,8 @@ function PostCard({ post, onRefresh }: PostCardProps) {
   const [myCustomerId, setMyCustomerId] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [editing, setEditing] = useState(false)
+  const [mediaViewerIndex, setMediaViewerIndex] = useState<number | null>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const params = useParams()
   const countryCode = params.countryCode as string
 
@@ -102,7 +106,6 @@ function PostCard({ post, onRefresh }: PostCardProps) {
   }
 
   const handleDelete = async () => {
-    if (!confirm("确认删除这条朋友圈？")) return
     try {
       const res = await fetch(`/api/social/posts/${post.id}`, {
         method: "DELETE",
@@ -116,6 +119,7 @@ function PostCard({ post, onRefresh }: PostCardProps) {
       console.error("delete error", e)
       alert("网络错误")
     }
+    setShowDeleteConfirm(false)
   }
 
   const handlePin = async () => {
@@ -169,7 +173,7 @@ function PostCard({ post, onRefresh }: PostCardProps) {
       })
       if (res.ok) {
         setCommentText("")
-        loadComments()
+        setShowComments(false)
         onRefresh()
       }
     } catch (e) {
@@ -224,7 +228,7 @@ function PostCard({ post, onRefresh }: PostCardProps) {
                   <button onClick={handleToggleComments} className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2">
                     💬 {post.comments_enabled ? '关闭评论' : '开启评论'}
                   </button>
-                  <button onClick={() => { setMenuOpen(false); handleDelete() }} className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2 text-red-500">
+                  <button onClick={() => { setMenuOpen(false); setShowDeleteConfirm(true) }} className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2 text-red-500">
                     🗑 删除
                   </button>
                 </div>
@@ -265,9 +269,16 @@ function PostCard({ post, onRefresh }: PostCardProps) {
           {post.media_urls.map((url, i) => {
             const isVideo = /\.(mp4|mov|avi|webm)$/i.test(url)
             return isVideo ? (
-              <video key={i} src={url} className="w-full aspect-square object-cover rounded" />
+              <button key={i} onClick={() => setMediaViewerIndex(i)} className="relative aspect-square overflow-hidden rounded group">
+                <video src={url} className="w-full h-full object-cover" muted preload="metadata" />
+                <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition">
+                  <div className="w-12 h-12 bg-white/80 rounded-full flex items-center justify-center text-gray-800 text-xl">▶</div>
+                </div>
+              </button>
             ) : (
-              <img key={i} src={url} alt="" className="w-full aspect-square object-cover rounded" />
+              <button key={i} onClick={() => setMediaViewerIndex(i)} className="aspect-square overflow-hidden rounded">
+                <img src={url} alt="" className="w-full h-full object-cover hover:scale-105 transition-transform" />
+              </button>
             )
           })}
         </div>
@@ -320,6 +331,24 @@ function PostCard({ post, onRefresh }: PostCardProps) {
           </div>
         </div>
       )}
+
+      {/* Media viewer overlay */}
+      {mediaViewerIndex !== null && post.media_urls && (
+        <MediaViewer
+          urls={post.media_urls.map((url: string) => ({
+            url,
+            isVideo: /\.(mp4|mov|avi|webm)$/i.test(url),
+          }))}
+          initialIndex={mediaViewerIndex}
+          onClose={() => setMediaViewerIndex(null)}
+        />
+      )}
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        message="确认删除这条朋友圈？"
+        onConfirm={handleDelete}
+        onCancel={() => setShowDeleteConfirm(false)}
+      />
     </div>
   )
 }
@@ -329,11 +358,21 @@ export default function SocialFeedPage() {
   const [loading, setLoading] = useState(true)
   const [myNickname, setMyNickname] = useState("")
   const [feedType, setFeedType] = useState<"friend" | "work">("friend")
+  const searchParams = useSearchParams()
+  const focusCustomerId = searchParams.get("focus") || ""
 
   const loadPosts = useCallback(async (type?: string) => {
     try {
       const effectiveType = type || feedType
-      const res = await fetch(`/api/social/posts?type=${effectiveType}`)
+      let url: string
+      if (focusCustomerId) {
+        // Visit a friend's garden
+        url = `/api/social/posts?customer_id=${focusCustomerId}`
+      } else {
+        // My own garden — my posts only, filtered by tab type
+        url = `/api/social/posts?scope=mine&type=${effectiveType}`
+      }
+      const res = await fetch(url)
       if (res.ok) {
         const data = await res.json()
         setPosts(data.data || data)
