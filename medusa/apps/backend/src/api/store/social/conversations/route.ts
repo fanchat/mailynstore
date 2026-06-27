@@ -65,10 +65,25 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
     try {
       const result = await pool.query(
         `SELECT c.id, c.type, c.name, c.created_at, c.updated_at,
-                (SELECT cm.last_read_at FROM conversation_members cm WHERE cm.conversation_id = c.id AND cm.customer_id = $1) as last_read_at
+                (SELECT cm.last_read_at FROM conversation_members cm WHERE cm.conversation_id = c.id AND cm.customer_id = $1) as last_read_at,
+                (SELECT COUNT(*) FROM messages m
+                 WHERE m.conversation_id = c.id
+                   AND m.sender_id != $1
+                   AND (cm2.last_read_at IS NULL OR m.created_at > cm2.last_read_at)
+                ) as unread_count,
+                (SELECT json_build_object(
+                   'content', m.content,
+                   'created_at', m.created_at,
+                   'sender_id', m.sender_id
+                 ) FROM messages m
+                 WHERE m.conversation_id = c.id
+                 ORDER BY m.created_at DESC LIMIT 1
+                ) as last_message
          FROM conversations c
          JOIN conversation_members cm ON cm.conversation_id = c.id
+         LEFT JOIN conversation_members cm2 ON cm2.conversation_id = c.id AND cm2.customer_id = $1
          WHERE cm.customer_id = $1
+           AND EXISTS (SELECT 1 FROM messages m WHERE m.conversation_id = c.id AND m.sender_id != $1)
          ORDER BY c.updated_at DESC NULLS LAST`,
         [customerId]
       )

@@ -68,13 +68,32 @@ export default function ChatPage() {
     } catch {}
   }
 
+  // Mark as read when opening
+  const markAsRead = async () => {
+    try {
+      await fetch(`/api/social/conversations/${convId}/read`, { method: "POST" })
+    } catch {}
+  }
+
   useEffect(() => {
-    if (convId) loadMessages()
+    if (convId) {
+      loadMessages()
+      markAsRead()
+    }
   }, [convId])
 
-  // Auto scroll to bottom
+  // Auto scroll to bottom only on new messages (not initial load)
+  const [initialLoad, setInitialLoad] = useState(true)
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" })
+    if (!initialLoad) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" })
+    }
+  }, [messages, initialLoad])
+
+  useEffect(() => {
+    if (messages.length > 0 && initialLoad) {
+      setInitialLoad(false)
+    }
   }, [messages])
 
   // Poll every 3s

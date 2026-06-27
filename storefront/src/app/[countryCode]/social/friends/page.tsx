@@ -26,12 +26,6 @@ export default function FriendsPage() {
   const [groups, setGroups] = useState<GroupConv[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Search state
-  const [searchEmail, setSearchEmail] = useState("")
-  const [searchResult, setSearchResult] = useState<any[]>([])
-  const [searching, setSearching] = useState(false)
-  const [searchMsg, setSearchMsg] = useState("")
-
   // Modals
   const [showAddFriend, setShowAddFriend] = useState(false)
   const [showCreateGroup, setShowCreateGroup] = useState(false)
@@ -62,31 +56,7 @@ export default function FriendsPage() {
     setLoading(false)
   }
 
-  // Search by keyword — find service providers
-  const handleSearch = async () => {
-    const q = searchEmail.trim().toLowerCase()
-    if (!q) return
-    setSearching(true)
-    setSearchResult([])
-    setSearchMsg("")
-    try {
-      const res = await fetch(`/api/social/search?q=${encodeURIComponent(q)}`)
-      if (res.ok) {
-        const d = await res.json()
-        const data = d.data || d
-        if (Array.isArray(data) && data.length > 0) {
-          setSearchResult(data)
-        } else {
-          setSearchMsg("未找到匹配的商家或用户")
-        }
-      } else {
-        setSearchMsg("搜索失败")
-      }
-    } catch { setSearchMsg("网络错误") }
-    setSearching(false)
-  }
-
-  // Send friend request (called from search result or add modal)
+  // Send friend request (called from add modal)
   const sendRequest = async (targetId: string) => {
     try {
       const res = await fetch("/api/social/friends", {
@@ -97,9 +67,6 @@ export default function FriendsPage() {
       if (res.ok) {
         setToastMsg("好友请求已发送")
         setTimeout(() => setToastMsg(""), 2000)
-        setSearchEmail("")
-        setSearchResult([])
-        setAddEmail("")
         setShowAddFriend(false)
       } else {
         const d = await res.json()
@@ -160,73 +127,6 @@ export default function FriendsPage() {
           {toastMsg}
         </div>
       )}
-
-      {/* Search by keyword — find service providers */}
-      <div className="bg-white rounded-lg shadow-sm mb-4 p-3">
-        <div className="text-xs text-gray-400 mb-1">搜商家、找服务</div>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={searchEmail}
-            onChange={(e) => setSearchEmail(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            placeholder="空调、家电维修、面包、散养土鸡..."
-            className="flex-1 border-0 outline-none text-sm"
-          />
-          <button
-            onClick={handleSearch}
-            disabled={searching || !searchEmail.trim()}
-            className="text-sm text-blue-600 font-medium disabled:text-gray-300"
-          >
-            {searching ? "搜索中..." : "搜索"}
-          </button>
-        </div>
-        {Array.isArray(searchResult) && searchResult.length > 0 && (
-          <div className="mt-2 border-t pt-2 space-y-2">
-            {searchResult.map((user: any) => (
-              <div key={user.id} className="flex items-center justify-between py-1">
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden flex-shrink-0">
-                    {user.avatar ? (
-                      <img src={user.avatar} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-xs text-gray-500">
-                        {(user.nickname || user.email)?.[0] || "?"}
-                      </div>
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-sm truncate">{user.nickname || user.email}</div>
-                    {user.company_name && (
-                      <div className="text-xs text-gray-500 truncate">🏢 {user.company_name}{user.job_title ? " · " + user.job_title : ""}</div>
-                    )}
-                    {user.services && (() => {
-                      const arr: string[] = Array.isArray(user.services) ? user.services : (() => { try { return JSON.parse(user.services); } catch { return []; } })()
-                      return arr.length > 0 ? (
-                        <div className="text-xs text-amber-600 truncate">🛠 {arr.join("、")}</div>
-                      ) : null
-                    })()}
-                    {user.office_address && (
-                      <div className="text-xs text-gray-400 truncate">📍 {user.office_address}</div>
-                    )}
-                  </div>
-                </div>
-                {isFriend(user.id) ? (
-                  <span className="text-xs text-gray-400 flex-shrink-0">已是好友</span>
-                ) : (
-                  <button
-                    onClick={() => sendRequest(user.id)}
-                    className="text-xs text-blue-600 border border-blue-600 px-3 py-1 rounded flex-shrink-0"
-                  >
-                    加好友
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-        {searchMsg && <div className="text-xs text-red-500 mt-1">{searchMsg}</div>}
-      </div>
 
       {/* Quick actions */}
       <div className="bg-white rounded-lg shadow-sm mb-4">
