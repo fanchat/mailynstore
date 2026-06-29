@@ -24,6 +24,7 @@ export default function SocialProfilePage() {
   // Edit modals state
   const [showPersonalEdit, setShowPersonalEdit] = useState(false)
   const [showWorkEdit, setShowWorkEdit] = useState(false)
+  const [showRenameModal, setShowRenameModal] = useState(false)
 
   const loadProfile = async () => {
     try {
@@ -145,16 +146,7 @@ export default function SocialProfilePage() {
   }
 
   const editNickname = () => {
-    const current = profile.nickname || ""
-    const newName = prompt("修改昵称", current)
-    if (!newName || newName === current) return
-    fetch("/api/social/profile", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nickname: newName }),
-    }).then((res) => {
-      if (res.ok) loadProfile()
-    })
+    setShowRenameModal(true)
   }
 
   if (loading) {
@@ -448,6 +440,15 @@ export default function SocialProfilePage() {
           profile={profile}
           onClose={() => setShowPersonalEdit(false)}
           onSaved={() => { setShowPersonalEdit(false); loadProfile() }}
+        />
+      )}
+
+      {/* ── Rename Modal ── */}
+      {showRenameModal && (
+        <RenameModal
+          current={profile.nickname || ""}
+          onClose={() => setShowRenameModal(false)}
+          onSaved={() => { setShowRenameModal(false); loadProfile() }}
         />
       )}
 
@@ -820,6 +821,76 @@ function WorkEditModal({
             disabled={saving}
             className="flex-1 py-2 text-sm text-white bg-blue-500 rounded-lg hover:bg-blue-600 disabled:opacity-50"
           >
+            {saving ? "保存中..." : "保存"}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+/* ===================== Modal: 昵称修改 ===================== */
+function RenameModal({
+  current,
+  onClose,
+  onSaved,
+}: {
+  current: string
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const [name, setName] = useState(current)
+  const [saving, setSaving] = useState(false)
+
+  const handleSave = async () => {
+    const trimmed = name.trim()
+    if (!trimmed || trimmed === current) return
+    setSaving(true)
+    try {
+      const res = await fetch("/api/social/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nickname: trimmed }),
+      })
+      if (res.ok) {
+        onSaved()
+      } else {
+        const d = await res.json()
+        alert(d.error || "保存失败")
+      }
+    } catch {
+      alert("网络错误")
+    }
+    setSaving(false)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="bg-white rounded-xl w-full max-w-sm shadow-xl overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b">
+          <div className="font-medium">修改昵称</div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="p-4">
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSave()}
+            placeholder="输入新昵称"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400"
+            autoFocus
+          />
+        </div>
+        <div className="flex gap-3 px-4 py-3 border-t">
+          <button onClick={onClose} className="flex-1 py-2 text-sm text-gray-500 border border-gray-300 rounded-lg hover:bg-gray-50">
+            取消
+          </button>
+          <button onClick={handleSave} disabled={saving || !name.trim()}
+            className="flex-1 py-2 text-sm text-white bg-blue-500 rounded-lg hover:bg-blue-600 disabled:opacity-50">
             {saving ? "保存中..." : "保存"}
           </button>
         </div>

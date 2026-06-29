@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useParams, usePathname } from "next/navigation"
 
-type Tab = "feed" | "friends" | "shop" | "profile" | "search" | "messages"
+type Tab = "feed" | "friends" | "shop" | "profile" | "search"
 
 export default function SocialLayout({
   children,
@@ -17,8 +17,6 @@ export default function SocialLayout({
   const path = pathname.replace(`/${countryCode}/social`, "") || "/"
   const activeTab: Tab = path.startsWith("/friends")
     ? "friends"
-    : path.startsWith("/messages")
-    ? "messages"
     : path.startsWith("/shop")
     ? "shop"
     : path.startsWith("/search")
@@ -31,7 +29,6 @@ export default function SocialLayout({
     { id: "feed", label: "圈子", href: `/${countryCode}/social` },
     { id: "friends", label: "好友", href: `/${countryCode}/social/friends` },
     { id: "shop", label: "商城", href: `/${countryCode}` },
-    { id: "messages", label: "消息", href: `/${countryCode}/social/messages` },
     { id: "search", label: "搜索", href: `/${countryCode}/social/search` },
     { id: "profile", label: "我的", href: `/${countryCode}/social/profile` },
   ]
@@ -45,7 +42,6 @@ export default function SocialLayout({
           {activeTab === "feed" && "圈子"}
           {activeTab === "friends" && "好友"}
           {activeTab === "search" && "搜索"}
-          {activeTab === "messages" && "消息"}
           {activeTab === "profile" && "我的"}
         </h1>
         <div className="w-12" />
@@ -72,7 +68,6 @@ export default function SocialLayout({
                 {tab.id === "friends" && "👥"}
                 {tab.id === "shop" && "🏪"}
                 {tab.id === "search" && "🔍"}
-                {tab.id === "messages" && "💬"}
                 {tab.id === "profile" && "👤"}
               </span>
               <span>{tab.label}</span>

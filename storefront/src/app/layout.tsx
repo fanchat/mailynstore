@@ -5,8 +5,32 @@ import { I18nProvider } from "@lib/i18n/TranslationsProvider"
 import { getLocale, getMessages } from "@lib/i18n/getMessages"
 import "styles/globals.css"
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+}
+
 export const metadata: Metadata = {
   metadataBase: new URL(getBaseURL()),
+  manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      { url: "/apple-icon-180.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
+  other: {
+    "apple-mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-status-bar-style": "default",
+    "apple-mobile-web-app-title": "Mailyns",
+    "mobile-web-app-capable": "yes",
+  },
 }
 
 export default async function RootLayout(props: { children: React.ReactNode }) {

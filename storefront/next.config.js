@@ -14,6 +14,8 @@ const S3_PATHNAME = process.env.MEDUSA_CLOUD_S3_PATHNAME
 const nextConfig = {
   devIndicators: false,
   reactStrictMode: true,
+  serverExternalPackages: ["@medusajs/medusa"],
+  allowedDevOrigins: ["192.168.2.7", "localhost", "mailyns.dynv6.net", "mailyn.cn", "www.mailyn.cn", "113.83.64.0"],
   logging: {
     fetches: {
       fullUrl: true,

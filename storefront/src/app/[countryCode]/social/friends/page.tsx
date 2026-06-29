@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
+import Link from "next/link"
 
 interface Friend {
   id: string
@@ -33,6 +34,10 @@ export default function FriendsPage() {
   const [addEmail, setAddEmail] = useState("")
   const [toastMsg, setToastMsg] = useState("")
 
+  // Messages state
+  const [convs, setConvs] = useState<any[]>([])
+  const [myId, setMyId] = useState<string | null>(null)
+
   const params = useParams()
   const countryCode = params.countryCode as string
   const router = useRouter()
@@ -41,17 +46,31 @@ export default function FriendsPage() {
     loadAll()
   }, [])
 
+  // Auto-refresh conversations for unread badge
+  useEffect(function() {
+    var iv = setInterval(async function() {
+      try {
+        var r = await fetch("/api/social/conversations")
+        var d = await r.json()
+        setConvs((d.data || d || []).filter((c: any) => c.type !== "group"))
+      } catch (_) {}
+    }, 5000)
+    return function() { clearInterval(iv) }
+  }, [])
+
   const loadAll = async () => {
     setLoading(true)
     try {
-      const [fRes, gRes, pRes] = await Promise.all([
+      const [fRes, gRes, pRes, cRes] = await Promise.all([
         fetch("/api/social/friends"),
         fetch("/api/social/conversations"),
         fetch("/api/social/profile"),
+        fetch("/api/social/conversations"),
       ])
       if (fRes.ok) { const d = await fRes.json(); setFriends(d.data || d) }
       if (gRes.ok) { const d = await gRes.json(); setGroups((d.data || d).filter((c: any) => c.type === "group")) }
-      if (pRes.ok) { const d = await pRes.json(); setProfile(d.data || d) }
+      if (pRes.ok) { const d = await pRes.json(); setProfile(d.data || d); setMyId((d.data || d)?.id || null) }
+      if (cRes.ok) { const d = await cRes.json(); setConvs((d.data || d).filter((c: any) => c.type !== "group")) }
     } catch {}
     setLoading(false)
   }
@@ -119,6 +138,27 @@ export default function FriendsPage() {
 
   const profileId = profile?.id || null
 
+  function getOther(c: any) {
+    return c.members?.find(function(m: any) { return m.id !== myId })
+  }
+
+  function timeAgo(ts: string) {
+    if (!ts) return ""
+    var d = new Date(ts)
+    var now = new Date()
+    var diff = now.getTime() - d.getTime()
+    var mins = Math.floor(diff / 60000)
+    if (mins < 1) return "刚刚"
+    if (mins < 60) return mins + "分钟前"
+    var hours = Math.floor(mins / 60)
+    if (hours < 24) return hours + "小时前"
+    var days = Math.floor(hours / 24)
+    if (days < 7) return days + "天前"
+    return d.toLocaleDateString("zh-CN", { month: "short", day: "numeric" })
+  }
+
+  var unreadConvs = convs.filter(function(c: any) { return c.unread_count > 0 })
+
   return (
     <div className="max-w-lg mx-auto px-4 py-4">
       {/* Toast */}
@@ -152,6 +192,52 @@ export default function FriendsPage() {
           <span>我的二维码</span>
         </button>
       </div>
+
+      {/* ── 消息 ── */}
+      {unreadConvs.length > 0 && (
+        <div className="bg-white rounded-lg shadow-sm mb-4 overflow-hidden">
+          <div className="px-4 py-2 text-xs font-medium text-red-500 bg-red-50 flex items-center gap-1 border-b border-red-100">
+            <span className="w-2 h-2 rounded-full bg-red-500" />
+            未读消息 ({unreadConvs.length})
+          </div>
+          {unreadConvs.map(function(c: any) {
+            var other = getOther(c)
+            var name = other?.nickname || other?.email || "未知"
+            var lm = c.last_message
+            var isSender = lm?.sender_id === myId
+            var preview = lm ? (isSender ? "你: " : "") + lm.content : "暂无消息"
+            return (
+              <Link
+                key={c.id}
+                href={"/" + countryCode + "/social/chat/" + c.id}
+                className={"flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0" + (c.unread_count > 0 ? " bg-red-50/20" : "")}
+              >
+                <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden flex-shrink-0 relative">
+                  {other?.avatar ? (
+                    <img src={other.avatar} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-500 text-sm font-medium">
+                      {(other?.nickname || other?.email || "?")[0]}
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold text-gray-900 truncate">{name}</span>
+                    <span className="text-xs text-gray-400 flex-shrink-0 ml-2">
+                      {timeAgo(lm?.created_at || c.updated_at)}
+                      <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-bold px-1">
+                        {c.unread_count > 99 ? "99+" : c.unread_count}
+                      </span>
+                    </span>
+                  </div>
+                  <div className="text-xs text-gray-600 font-medium truncate mt-0.5">{preview}</div>
+                </div>
+              </Link>
+            )
+          })}
+        </div>
+      )}
 
       {/* Friend requests indicator */}
       <FriendRequestBadge onAccepted={() => loadAll()} />
