@@ -1,8 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
+import { Html5Qrcode } from "html5-qrcode"
 
 interface Friend {
   id: string
@@ -31,8 +32,12 @@ export default function FriendsPage() {
   const [showAddFriend, setShowAddFriend] = useState(false)
   const [showCreateGroup, setShowCreateGroup] = useState(false)
   const [showQrCode, setShowQrCode] = useState(false)
+  const [showScanner, setShowScanner] = useState(false)
   const [addEmail, setAddEmail] = useState("")
   const [toastMsg, setToastMsg] = useState("")
+
+  // Scanner ref — created and started in the click handler (iOS needs getUserMedia in gesture)
+  const scannerRef = useRef<Html5Qrcode | null>(null)
 
   // Messages state
   const [convs, setConvs] = useState<any[]>([])
@@ -190,6 +195,77 @@ export default function FriendsPage() {
         >
           <span className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-600">📱</span>
           <span>我的二维码</span>
+        </button>
+      </div>
+
+      {/* Scan QR button — separate block */}
+      <div className="bg-white rounded-lg shadow-sm mb-4">
+        <button
+          onClick={async () => {
+            // Warm up camera permission in gesture context (iOS requirement)
+            try {
+              // 1) Request permission immediately (still in click gesture)
+              const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: "environment" },
+              })
+              // Release the warmup stream
+              stream.getTracks().forEach(t => t.stop())
+            } catch (_) {
+              // Permission denied or no camera
+            }
+            // 2) Show modal with #qr-reader div
+            setShowScanner(true)
+            // 3) Give React a tick to render then start html5-qrcode scanner
+            await new Promise(r => setTimeout(r, 100))
+            try {
+              const scanner = new Html5Qrcode("qr-reader")
+              scannerRef.current = scanner
+              await scanner.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: { width: 250, height: 250 } },
+                async (decodedText) => {
+                  try { await scanner.stop() } catch (_) {}
+                  scannerRef.current = null
+                  let email = decodedText
+                  const prefix = "mailyns://add-friend/"
+                  if (decodedText.startsWith(prefix)) {
+                    email = decodedText.slice(prefix.length)
+                  }
+                  email = decodeURIComponent(email)
+                  if (email.includes("@")) {
+                    setShowScanner(false)
+                    const res = await fetch(`/api/social/search?q=${encodeURIComponent(email.toLowerCase())}`)
+                    if (res.ok) {
+                      const d = await res.json()
+                      const data = d.data || d
+                      if (data.length > 0) {
+                        await sendRequest(data[0].id)
+                        setToastMsg("好友请求已发送")
+                        setTimeout(() => setToastMsg(""), 2000)
+                      } else {
+                        setToastMsg("未找到该用户")
+                        setTimeout(() => setToastMsg(""), 2000)
+                      }
+                    } else {
+                      setToastMsg("搜索失败")
+                      setTimeout(() => setToastMsg(""), 2000)
+                    }
+                  } else {
+                    setToastMsg("无效的二维码")
+                    setTimeout(() => setToastMsg(""), 2000)
+                  }
+                },
+                () => {}
+              )
+            } catch (e: any) {
+              setToastMsg("无法打开摄像头: " + (e?.message || "未知错误"))
+              setTimeout(() => setToastMsg(""), 3000)
+            }
+          }}
+          className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-50"
+        >
+          <span className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-600">📷</span>
+          <span>扫一扫</span>
         </button>
       </div>
 
@@ -363,6 +439,18 @@ export default function FriendsPage() {
           onClose={() => setShowCreateGroup(false)}
         />
       )}
+
+      {/* ── QR Scanner Modal ── */}
+      {showScanner && (
+        <QrScannerModal
+          scannerRef={scannerRef}
+          onClose={() => {
+            try { scannerRef.current?.stop() } catch (_) {}
+            scannerRef.current = null
+            setShowScanner(false)
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -496,6 +584,57 @@ function CreateGroupModal({
             className="flex-1 py-2 text-sm text-white bg-blue-500 rounded-lg hover:bg-blue-600 disabled:opacity-50"
           >
             {saving ? "创建中..." : "创建"}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ============================ QR Scanner Modal ============================ */
+function QrScannerModal({
+  onClose,
+  scannerRef,
+}: {
+  onClose: () => void
+  scannerRef: React.MutableRefObject<Html5Qrcode | null>
+}) {
+  const [scanning, setScanning] = useState(true)
+  const [error, setError] = useState("")
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+      <div className="bg-white rounded-xl w-full max-w-sm shadow-xl overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b">
+          <div className="font-medium">扫一扫加好友</div>
+          <button
+            onClick={() => {
+              try { scannerRef.current?.stop() } catch (_) {}
+              onClose()
+            }}
+            className="text-gray-400 hover:text-gray-600 text-lg"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="p-4">
+          <div id="qr-reader" className="w-full aspect-square bg-gray-100 rounded-lg overflow-hidden" />
+          {scanning && (
+            <div className="text-center text-xs text-gray-400 mt-3">将二维码对准取景框</div>
+          )}
+          {error && (
+            <div className="text-center text-xs text-red-500 mt-3">{error}</div>
+          )}
+        </div>
+        <div className="flex gap-3 px-4 py-3 border-t">
+          <button
+            onClick={() => {
+              try { scannerRef.current?.stop() } catch (_) {}
+              onClose()
+            }}
+            className="flex-1 py-2 text-sm text-gray-500 border border-gray-300 rounded-lg hover:bg-gray-50"
+          >
+            关闭
           </button>
         </div>
       </div>

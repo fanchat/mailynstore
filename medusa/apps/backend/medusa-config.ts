@@ -6,6 +6,7 @@ module.exports = defineConfig({
   projectConfig: {
     databaseUrl: process.env.DATABASE_URL,
     redisUrl: process.env.REDIS_URL,
+    redisPrefix: "mailyn:",
     http: {
       storeCors: process.env.STORE_CORS!,
       adminCors: process.env.ADMIN_CORS!,
@@ -13,11 +14,28 @@ module.exports = defineConfig({
       jwtSecret: process.env.JWT_SECRET,
       cookieSecret: process.env.COOKIE_SECRET,
     },
+    sessionOptions: {
+      saveUninitialized: true,
+    },
+    cookieOptions: {
+      secure: false,
+    },
   },
   admin: {
     path: "/app",
   },
   modules: {
+    auth: {
+      resolve: "@medusajs/medusa/auth",
+      options: {
+        providers: [
+          {
+            resolve: "@medusajs/medusa/auth-emailpass",
+            id: "emailpass",
+          },
+        ],
+      },
+    },
     notification: {
       options: {
         providers: [

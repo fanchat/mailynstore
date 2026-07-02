@@ -60,14 +60,7 @@ const nextConfig = {
         : []),
     ],
   },
-  async rewrites() {
-    return [
-      {
-        source: "/uploads/:path*",
-        destination: `${process.env.MEDUSA_BACKEND_URL || "http://localhost:9000"}/uploads/:path*`,
-      },
-    ]
-  },
+  // removed: /uploads/ rewrite — files now served via symlink from public/uploads/
 }
 
 module.exports = nextConfig

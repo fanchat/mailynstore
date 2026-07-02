@@ -26,12 +26,11 @@ const ProductInfo = ({ product }: ProductInfoProps) => {
           {product.title}
         </Heading>
 
-        <Text
-          className="text-medium text-ui-fg-subtle whitespace-pre-line"
+        <div
+          className="text-medium text-ui-fg-subtle [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-2 [&_strong]:font-semibold [&_p]:mb-3 [&_p]:leading-relaxed"
           data-testid="product-description"
-        >
-          {product.description}
-        </Text>
+          dangerouslySetInnerHTML={{ __html: product.description || "" }}
+        />
       </div>
     </div>
   )

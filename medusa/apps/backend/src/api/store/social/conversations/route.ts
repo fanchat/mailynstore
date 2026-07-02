@@ -89,7 +89,7 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
       )
 
       // Fetch member info for each conversation
-      const rows = []
+      const rows: any[] = []
       for (const row of result.rows) {
         const members = await pool.query(
           `SELECT cm.customer_id as id, c.email, c.nickname, c.avatar

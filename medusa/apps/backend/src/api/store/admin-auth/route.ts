@@ -3,7 +3,7 @@ import { scryptSync, timingSafeEqual, createHash, createHmac } from "crypto"
 import { ContainerRegistrationKeys } from "@medusajs/utils"
 import { Pool } from "pg"
 import { checkRateLimit, getRateLimitRemaining } from "../../lib/rate-limit"
-import { SignJWT } from "jose"
+
 
 function verifyScrypt(password: string, storedB64: string): boolean {
   const raw = Buffer.from(storedB64, "base64")
@@ -89,6 +89,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     const adminUser = userResult.rows[0]
     const now = Math.floor(Date.now() / 1000)
 
+    const { SignJWT } = await import("jose")
     const medusaToken = await new SignJWT({
       actor_id: adminUser.id,
       actor_type: "user",

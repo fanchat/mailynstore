@@ -32,7 +32,7 @@ export default function StoreBottomNav() {
     { id: "home", label: "home", href: `/${countryCode}`, icon: "🏪" },
     { id: "categories", label: "分类", href: `/${countryCode}/store`, icon: "📂" },
     { id: "social", label: "社交", href: `/${countryCode}/social`, icon: "🌐" },
-    { id: "cart", label: "推车", href: `/${countryCode}/cart`, icon: "🛒" },
+    { id: "cart", label: "购物车", href: `/${countryCode}/cart`, icon: "🛒" },
     { id: "account", label: "我的", href: `/${countryCode}/account`, icon: "👤" },
   ]
 
