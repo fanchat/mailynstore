@@ -159,10 +159,16 @@ export default function ChatPage() {
       streamRef.current = stream
       audioChunksRef.current = []
 
-      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-        ? "audio/webm;codecs=opus"
-        : "audio/webm"
-      const recorder = new MediaRecorder(stream, { mimeType })
+      // Pick best supported MIME type
+      let mimeType = ""
+      if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
+        mimeType = "audio/webm;codecs=opus"
+      } else if (MediaRecorder.isTypeSupported("audio/webm")) {
+        mimeType = "audio/webm"
+      } else if (MediaRecorder.isTypeSupported("audio/mp4")) {
+        mimeType = "audio/mp4"
+      }
+      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream)
       mediaRecorderRef.current = recorder
 
       recorder.ondataavailable = (e) => {
@@ -178,8 +184,12 @@ export default function ChatPage() {
       timerRef.current = setInterval(() => {
         setRecordingElapsed(Math.floor((performance.now() - start) / 1000))
       }, 1000)
-    } catch {
-      alert("需要麦克风权限才能录制语音")
+    } catch (err: any) {
+      if (err?.name === "NotAllowedError" || err?.name === "PermissionDeniedError") {
+        alert("需要麦克风权限才能录制语音")
+      } else {
+        alert("录音初始化失败，当前浏览器可能不支持录音功能")
+      }
     }
   }
 
@@ -190,7 +200,8 @@ export default function ChatPage() {
       if (timerRef.current) clearInterval(timerRef.current)
 
       const duration = Math.max(1, Math.floor((performance.now() - recordingStart) / 1000))
-      const blob = new Blob(audioChunksRef.current, { type: "audio/webm" })
+      const mimeType = mediaRecorderRef.current?.mimeType || "audio/webm"
+      const blob = new Blob(audioChunksRef.current, { type: mimeType })
 
       // Release microphone
       if (streamRef.current) {
@@ -204,7 +215,7 @@ export default function ChatPage() {
       try {
         // Upload audio
         const formData = new FormData()
-        const ext = blob.type.includes("webm") ? "webm" : "mp4"
+        const ext = mimeType.includes("mp4") ? "m4a" : "webm"
         formData.append("file", blob, `voice_${Date.now()}.${ext}`)
 
         const uploadRes = await fetch("/api/social/media/upload", {
