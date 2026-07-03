@@ -218,7 +218,7 @@ export default function ChatPage() {
         const ext = mimeType.includes("mp4") ? "m4a" : "webm"
         formData.append("file", blob, `voice_${Date.now()}.${ext}`)
 
-        const uploadRes = await fetch("/api/social/media/upload", {
+        const uploadRes = await fetch("/api/social/media", {
           method: "POST",
           body: formData,
         })
