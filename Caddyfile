@@ -1,13 +1,17 @@
 {
-    https_port 8443
+	https_port 8443
 }
 
 mailyn.cn:8443 {
-    @umami {
-        path /script.js
-        path /api/send
-        path /api/collect
-    }
-    reverse_proxy @umami localhost:3000
-    reverse_proxy localhost:8000
+	@umami {
+		path /script.js
+		path /api/send
+		path /api/collect
+	}
+	@uploads {
+		path /uploads/*
+	}
+	reverse_proxy @umami localhost:3000
+	reverse_proxy @uploads localhost:9000
+	reverse_proxy localhost:8000
 }

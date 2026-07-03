@@ -425,57 +425,61 @@ export default function ChatPage() {
       <div className="bg-white border-t border-gray-200 px-4 py-3">
         {isUploading ? (
           <div className="text-sm text-gray-400 text-center py-2">发送语音消息...</div>
-        ) : isRecording ? (
-          <div className="flex items-center gap-3">
-            <span className="text-red-500 text-lg animate-pulse">🔴</span>
-            <span className="font-mono text-sm tabular-nums">
-              {formatDuration(recordingElapsed)}
-            </span>
-            <button
-              onClick={stopRecording}
-              className="w-10 h-10 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 flex-shrink-0"
-              title="停止录音"
-            >
-              ■
-            </button>
-            <button
-              onClick={cancelRecording}
-              className="text-gray-400 hover:text-gray-600 text-lg flex-shrink-0"
-              title="取消"
-            >
-              ✕
-            </button>
-            <span className="text-xs text-gray-400 ml-auto">点击停止发送语音</span>
-          </div>
         ) : (
-          <div className="flex gap-2 items-center">
-            {micSupported && (
-              <button
-                onClick={startRecording}
-                title="语音消息"
-                className="w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 hover:text-gray-700 flex-shrink-0 text-lg"
-              >
-                🎤
-              </button>
+          <>
+            {isRecording && (
+              <div className="flex items-center gap-3 mb-2">
+                <span className="text-red-500 text-lg animate-pulse">🔴</span>
+                <span className="font-mono text-sm tabular-nums">
+                  {formatDuration(recordingElapsed)}
+                </span>
+                <button
+                  onClick={stopRecording}
+                  className="w-10 h-10 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 flex-shrink-0"
+                  title="停止录音"
+                >
+                  ■
+                </button>
+                <button
+                  onClick={cancelRecording}
+                  className="text-gray-400 hover:text-gray-600 text-lg flex-shrink-0"
+                  title="取消"
+                >
+                  ✕
+                </button>
+                <span className="text-xs text-gray-400 ml-auto">点击停止发送语音</span>
+              </div>
             )}
-            <input
-              ref={inputRef}
-              type="text"
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="输入消息..."
-              disabled={sending}
-              className="flex-1 border border-gray-300 rounded-full px-4 py-2 text-sm outline-none focus:border-blue-400"
-            />
-            <button
-              onClick={handleSend}
-              disabled={!inputText.trim() || sending}
-              className="w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center disabled:opacity-40 hover:bg-blue-600 flex-shrink-0"
-            >
-              {sending ? "..." : "➤"}
-            </button>
-          </div>
+            <div className="flex gap-2 items-center">
+              {micSupported && (
+                <button
+                  onClick={startRecording}
+                  title="语音消息"
+                  disabled={isRecording}
+                  className="w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 hover:text-gray-700 flex-shrink-0 text-lg disabled:opacity-40"
+                >
+                  🎤
+                </button>
+              )}
+              <input
+                ref={inputRef}
+                type="text"
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="输入消息..."
+                disabled={sending}
+                className="flex-1 border border-gray-300 rounded-full px-4 py-2 text-sm outline-none focus:border-blue-400"
+              />
+              <button
+                onClick={handleSend}
+                disabled={!inputText.trim() || sending}
+                className="w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center disabled:opacity-40 hover:bg-blue-600 flex-shrink-0"
+              >
+                {sending ? "..." : "➤"}
+              </button>
+            </div>
+          </>
         )}
       </div>
     </div>
