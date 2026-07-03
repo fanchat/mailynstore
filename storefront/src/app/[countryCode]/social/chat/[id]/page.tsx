@@ -24,6 +24,12 @@ interface ConvInfo {
   members: { id: string; nickname: string | null; email: string; avatar: string | null }[]
 }
 
+function formatDuration(seconds: number): string {
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  return `${m}:${s.toString().padStart(2, "0")}`
+}
+
 export default function ChatPage() {
   const params = useParams()
   const router = useRouter()
@@ -37,6 +43,24 @@ export default function ChatPage() {
   const [myId, setMyId] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // Voice recording state
+  const [micSupported, setMicSupported] = useState(false)
+  const [isRecording, setIsRecording] = useState(false)
+  const [recordingStart, setRecordingStart] = useState(0)
+  const [recordingElapsed, setRecordingElapsed] = useState(0)
+  const [isUploading, setIsUploading] = useState(false)
+  const [playingId, setPlayingId] = useState<number | null>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const audioChunksRef = useRef<Blob[]>([])
+  const streamRef = useRef<MediaStream | null>(null)
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+
+  // Check microphone support
+  useEffect(() => {
+    setMicSupported(typeof navigator.mediaDevices?.getUserMedia === "function")
+  }, [])
 
   // Fetch conversation info + my identity
   useEffect(() => {
@@ -127,6 +151,150 @@ export default function ChatPage() {
     }
   }
 
+  // ── Voice recording ──
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      streamRef.current = stream
+      audioChunksRef.current = []
+
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus"
+        : "audio/webm"
+      const recorder = new MediaRecorder(stream, { mimeType })
+      mediaRecorderRef.current = recorder
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data)
+      }
+
+      recorder.start()
+      const start = performance.now()
+      setRecordingStart(start)
+      setIsRecording(true)
+      setRecordingElapsed(0)
+
+      timerRef.current = setInterval(() => {
+        setRecordingElapsed(Math.floor((performance.now() - start) / 1000))
+      }, 1000)
+    } catch {
+      alert("需要麦克风权限才能录制语音")
+    }
+  }
+
+  const stopRecording = () => {
+    if (!mediaRecorderRef.current || mediaRecorderRef.current.state === "inactive") return
+
+    mediaRecorderRef.current.onstop = async () => {
+      if (timerRef.current) clearInterval(timerRef.current)
+
+      const duration = Math.max(1, Math.floor((performance.now() - recordingStart) / 1000))
+      const blob = new Blob(audioChunksRef.current, { type: "audio/webm" })
+
+      // Release microphone
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop())
+        streamRef.current = null
+      }
+
+      setIsRecording(false)
+      setIsUploading(true)
+
+      try {
+        // Upload audio
+        const formData = new FormData()
+        const ext = blob.type.includes("webm") ? "webm" : "mp4"
+        formData.append("file", blob, `voice_${Date.now()}.${ext}`)
+
+        const uploadRes = await fetch("/api/social/media/upload", {
+          method: "POST",
+          body: formData,
+        })
+        if (!uploadRes.ok) throw new Error("upload_failed")
+        const { url } = await uploadRes.json()
+
+        // Send as voice message
+        const msgRes = await fetch(`/api/social/conversations/${convId}/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "voice",
+            media_url: url,
+            content: String(duration),
+          }),
+        })
+        if (!msgRes.ok) throw new Error("send_failed")
+
+        await loadMessages()
+      } catch {
+        alert("语音发送失败")
+      }
+
+      setIsUploading(false)
+    }
+
+    mediaRecorderRef.current.stop()
+  }
+
+  const cancelRecording = () => {
+    if (timerRef.current) clearInterval(timerRef.current)
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.ondataavailable = null
+      mediaRecorderRef.current.onstop = null
+      mediaRecorderRef.current.stop()
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop())
+      streamRef.current = null
+    }
+    setIsRecording(false)
+    setRecordingElapsed(0)
+  }
+
+  // ── Voice playback ──
+
+  const playVoice = (msgId: number, mediaUrl: string) => {
+    if (playingId === msgId) {
+      // Stop current
+      audioRef.current?.pause()
+      audioRef.current = null
+      setPlayingId(null)
+      return
+    }
+
+    // Stop previous
+    audioRef.current?.pause()
+
+    const audio = new Audio(mediaUrl)
+    audioRef.current = audio
+    setPlayingId(msgId)
+
+    audio.onended = () => {
+      setPlayingId(null)
+      audioRef.current = null
+    }
+
+    audio.onerror = () => {
+      setPlayingId(null)
+      audioRef.current = null
+    }
+
+    audio.play().catch(() => {
+      setPlayingId(null)
+      audioRef.current = null
+    })
+  }
+
+  // Cleanup audio and timer on unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current)
+      audioRef.current?.pause()
+      audioRef.current = null
+    }
+  }, [])
+
   const otherMember = conv?.members.find(m => m.id !== myId)
   const otherId = conv && myId ? (conv.members.find(m => m.id !== myId)?.id || "") : ""
   const title = otherMember?.nickname || otherMember?.email || "聊天"
@@ -201,7 +369,29 @@ export default function ChatPage() {
                       : "bg-white text-gray-800 rounded-bl-sm shadow-sm"
                   }`}
                 >
-                  <div>{msg.content}</div>
+                  {msg.type === "voice" ? (
+                    <button
+                      onClick={() => playVoice(msg.id, msg.media_url || "")}
+                      className="flex items-center gap-2 min-w-[100px]"
+                    >
+                      <span className="text-base leading-none">
+                        {playingId === msg.id ? "⏸" : "▶"}
+                      </span>
+                      <span className="text-sm font-medium">
+                        {formatDuration(parseInt(msg.content || "0", 10))}
+                      </span>
+                      <span className="flex-1 h-1 rounded-full overflow-hidden bg-current opacity-30">
+                        <span
+                          className={`block h-full rounded-full bg-current ${
+                            playingId === msg.id ? "animate-pulse" : ""
+                          }`}
+                          style={{ width: playingId === msg.id ? "60%" : "100%" }}
+                        />
+                      </span>
+                    </button>
+                  ) : (
+                    <div>{msg.content}</div>
+                  )}
                   <div
                     className={`text-xs mt-0.5 ${
                       isMe ? "text-blue-100" : "text-gray-400"
@@ -222,25 +412,60 @@ export default function ChatPage() {
 
       {/* Input bar */}
       <div className="bg-white border-t border-gray-200 px-4 py-3">
-        <div className="flex gap-2">
-          <input
-            ref={inputRef}
-            type="text"
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="输入消息..."
-            disabled={sending}
-            className="flex-1 border border-gray-300 rounded-full px-4 py-2 text-sm outline-none focus:border-blue-400"
-          />
-          <button
-            onClick={handleSend}
-            disabled={!inputText.trim() || sending}
-            className="w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center disabled:opacity-40 hover:bg-blue-600"
-          >
-            {sending ? "..." : "➤"}
-          </button>
-        </div>
+        {isUploading ? (
+          <div className="text-sm text-gray-400 text-center py-2">发送语音消息...</div>
+        ) : isRecording ? (
+          <div className="flex items-center gap-3">
+            <span className="text-red-500 text-lg animate-pulse">🔴</span>
+            <span className="font-mono text-sm tabular-nums">
+              {formatDuration(recordingElapsed)}
+            </span>
+            <button
+              onClick={stopRecording}
+              className="w-10 h-10 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 flex-shrink-0"
+              title="停止录音"
+            >
+              ■
+            </button>
+            <button
+              onClick={cancelRecording}
+              className="text-gray-400 hover:text-gray-600 text-lg flex-shrink-0"
+              title="取消"
+            >
+              ✕
+            </button>
+            <span className="text-xs text-gray-400 ml-auto">点击停止发送语音</span>
+          </div>
+        ) : (
+          <div className="flex gap-2 items-center">
+            {micSupported && (
+              <button
+                onClick={startRecording}
+                title="语音消息"
+                className="w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 hover:text-gray-700 flex-shrink-0 text-lg"
+              >
+                🎤
+              </button>
+            )}
+            <input
+              ref={inputRef}
+              type="text"
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="输入消息..."
+              disabled={sending}
+              className="flex-1 border border-gray-300 rounded-full px-4 py-2 text-sm outline-none focus:border-blue-400"
+            />
+            <button
+              onClick={handleSend}
+              disabled={!inputText.trim() || sending}
+              className="w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center disabled:opacity-40 hover:bg-blue-600 flex-shrink-0"
+            >
+              {sending ? "..." : "➤"}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

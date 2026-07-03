@@ -24,6 +24,8 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
     ".gif": "image/gif", ".webp": "image/webp",
     ".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime",
     ".avi": "video/x-msvideo",
+    ".mp3": "audio/mpeg", ".wav": "audio/wav", ".ogg": "audio/ogg",
+    ".m4a": "audio/mp4",
   }
 
   res.status(200)

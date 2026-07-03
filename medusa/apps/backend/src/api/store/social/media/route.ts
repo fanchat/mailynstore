@@ -25,7 +25,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     const result = await new Promise<{ url: string }>((resolve, reject) => {
       busboy.on("file", (fieldname, file, info) => {
         const ext = path.extname(info.filename).toLowerCase()
-        const allowed = [".jpg", ".jpeg", ".png", ".webp", ".gif", ".mp4", ".mov", ".avi", ".webm"]
+        const allowed = [".jpg", ".jpeg", ".png", ".webp", ".gif", ".mp4", ".mov", ".avi", ".webm", ".mp3", ".wav", ".ogg", ".m4a"]
         fileExt = allowed.includes(ext) ? ext : ".bin"
 
         file.on("data", (chunk: Buffer) => {
