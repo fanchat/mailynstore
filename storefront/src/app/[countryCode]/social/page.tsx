@@ -361,6 +361,8 @@ export default function SocialFeedPage() {
   const [myNickname, setMyNickname] = useState("")
   const [feedType, setFeedType] = useState<"friend" | "work">("friend")
   const [viewingFriendId, setViewingFriendId] = useState("")
+  const [workProfile, setWorkProfile] = useState<any>(null)
+  const [friendProfile, setFriendProfile] = useState<any>(null)
 
   const searchParams = useSearchParams()
   const focusCustomerId = searchParams?.get("focus") || ""
@@ -391,11 +393,21 @@ export default function SocialFeedPage() {
   useEffect(() => {
     setLoading(true)
     loadPosts(feedType)
-    // Load my nickname
-    fetch("/api/social/profile").then(r => r.json()).then(d => {
-      setMyNickname(d.data?.nickname || "我")
-    }).catch(() => {})
-  }, [feedType, loadPosts])
+    if (focusCustomerId) {
+      // Visiting a friend — load their profile
+      fetch(`/api/social/profile?customer_id=${focusCustomerId}`).then(r => r.json()).then(d => {
+        setFriendProfile(d.data || null)
+      }).catch(() => {})
+      setWorkProfile(null)
+    } else {
+      // My own circles — load my profile
+      fetch("/api/social/profile").then(r => r.json()).then(d => {
+        setMyNickname(d.data?.nickname || "我")
+        setWorkProfile(d.data?.work_profile || null)
+      }).catch(() => {})
+      setFriendProfile(null)
+    }
+  }, [feedType, loadPosts, focusCustomerId])
 
   const switchType = (type: "friend" | "work") => {
     if (type !== feedType) {
@@ -408,6 +420,83 @@ export default function SocialFeedPage() {
 
   return (
     <div className="max-w-lg mx-auto px-4 py-4 w-full">
+      {/* 工作信息卡片 */}
+      {((!viewingFriendId && workProfile) || (viewingFriendId && friendProfile?.work_profile)) && (() => {
+        const isFriend = !!viewingFriendId
+        const wp = isFriend ? friendProfile.work_profile : workProfile
+        const services: string[] = wp.services
+          ? (Array.isArray(wp.services) ? wp.services : (() => { try { return JSON.parse(wp.services) } catch { return [] } })())
+          : []
+        const hasInfo = wp.company_name || wp.job_title || services.length > 0 || wp.office_address || wp.contact
+        if (!hasInfo) return null
+        return (
+          <div className="relative mb-5 overflow-hidden rounded-xl bg-gradient-to-br from-slate-50 via-white to-blue-50 shadow-[0_2px_12px_-3px_rgba(59,130,246,0.15)] border border-blue-100/60">
+            {/* Decorative accent bar */}
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-400 via-sky-400 to-cyan-400" />
+            {/* Decorative circles */}
+            <div className="absolute -top-6 -right-6 w-24 h-24 rounded-full bg-gradient-to-br from-blue-100/40 to-sky-100/40 blur-xl" />
+            <div className="absolute -bottom-4 -left-4 w-16 h-16 rounded-full bg-gradient-to-tr from-cyan-100/30 to-blue-100/30 blur-lg" />
+
+            <div className="relative px-4 pt-4 pb-3.5">
+              {/* Header */}
+              <div className="flex items-center gap-2 mb-3.5">
+                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-sky-500 shadow-sm">
+                  <svg className="w-4.5 h-4.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+                    <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+                  </svg>
+                </div>
+                <span className="text-base font-bold text-gray-800 tracking-wide">工作信息</span>
+              </div>
+
+              <div className="space-y-2.5">
+                {wp.company_name && (
+                  <div className="flex items-start gap-2.5">
+                    <span className="mt-0.5 flex-shrink-0 w-5 text-center text-base">🏢</span>
+                    <div className="flex-1 min-w-0">
+                      <span className="font-semibold text-gray-800">{wp.company_name}</span>
+                      {wp.job_title && (
+                        <>
+                          <span className="text-gray-300 mx-1.5">·</span>
+                          <span className="text-gray-500">{wp.job_title}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {services.length > 0 && (
+                  <div className="flex items-start gap-2.5">
+                    <span className="mt-0.5 flex-shrink-0 w-5 text-center text-base">🔧</span>
+                    <div className="flex-1 flex flex-wrap gap-1.5">
+                      {services.map((s: string, i: number) => (
+                        <span key={i} className="inline-block px-2.5 py-1 text-xs font-medium rounded-full bg-gradient-to-r from-blue-50 to-sky-50 text-blue-700 border border-blue-200/60 shadow-[0_1px_2px_rgba(59,130,246,0.06)]">
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {wp.office_address && (
+                  <div className="flex items-start gap-2.5">
+                    <span className="mt-0.5 flex-shrink-0 w-5 text-center text-base">📍</span>
+                    <span className="text-gray-700">{wp.office_address}</span>
+                  </div>
+                )}
+
+                {wp.contact && (
+                  <div className="flex items-start gap-2.5">
+                    <span className="mt-0.5 flex-shrink-0 w-5 text-center text-base">📞</span>
+                    <span className="text-gray-700 font-medium">{wp.contact}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
       {/* Folder-style tabs */}
       <div className="flex mb-4 bg-gray-100 rounded-lg p-1">
         <button
@@ -431,18 +520,6 @@ export default function SocialFeedPage() {
           📁 工作圈
         </button>
       </div>
-
-      {/* Quick post box — only when viewing own feed */}
-      {!viewingFriendId && (
-      <div className="bg-white rounded-lg shadow-sm mb-4 p-4">
-        <Link
-          href={`/${countryCode}/social/new-post`}
-          className="block w-full text-left px-4 py-2.5 bg-gray-50 rounded-lg text-sm text-gray-400 hover:bg-gray-100"
-        >
-          {feedType === "friend" ? "分享生活..." : "分享工作..."}
-        </Link>
-      </div>
-      )}
 
       {/* Feed */}
       {loading ? (

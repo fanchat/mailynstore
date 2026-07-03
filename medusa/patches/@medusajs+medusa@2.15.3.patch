@@ -1,0 +1,11 @@
+diff --git a/dist/commands/develop.js b/dist/commands/develop.js
+index abc1234..def5678 100644
+--- a/dist/commands/develop.js
++++ b/dist/commands/develop.js
+@@ -148,6 +148,7 @@
+                     "static",
+                     "private",
+                     "src/admin",
+                     ".medusa",
++                    "uploads",
+                 ],

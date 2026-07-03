@@ -37,7 +37,7 @@ export default function SocialLayout({
   ]
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50">
+    <div className="flex flex-col h-dvh bg-gray-50">
       {/* Top bar */}
       <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-3 flex items-center">
         <div className="w-12" />
@@ -52,7 +52,7 @@ export default function SocialLayout({
       </div>
 
       {/* Content */}
-      <div className="flex-1 pb-16 flex flex-col min-h-0">{children}</div>
+      <div className={`flex-1 ${activeTab !== "chat" ? "pb-16" : "pb-14"} flex flex-col min-h-0`}>{children}</div>
 
       {/* Bottom nav — hide chat tab from nav bar */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200">

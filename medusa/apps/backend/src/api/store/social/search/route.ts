@@ -2,8 +2,8 @@ import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { Pool } from "pg"
 import { getCustomerId } from "../utils"
 
-// GET /store/social/search?q=keyword&region=xxx — search users by email, company, services, or job title
-// Optional region filter: filters by customer's home region (c.region).
+// GET /store/social/search?q=keyword&region=xxx — search users by email, company, services, job title, or work address
+// Optional region filter: filters by work address (wp.office_address), not personal region.
 // Returns up to 50 results with work profile info for business/service discovery.
 // When no results match, returns a guidance message.
 export async function GET(req: MedusaRequest, res: MedusaResponse) {
@@ -37,8 +37,9 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
                WHERE (c.email ILIKE $1
                    OR wp.company_name ILIKE $1
                    OR wp.services ILIKE $1
-                   OR wp.job_title ILIKE $1)
-                 AND c.region ILIKE $3
+                   OR wp.job_title ILIKE $1
+                   OR wp.office_address ILIKE $1)
+                 AND wp.office_address ILIKE $3
                  AND c.id != $2
                ORDER BY
                  CASE WHEN c.email ILIKE $1 THEN 0
@@ -56,7 +57,8 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
                WHERE (c.email ILIKE $1
                    OR wp.company_name ILIKE $1
                    OR wp.services ILIKE $1
-                   OR wp.job_title ILIKE $1)
+                   OR wp.job_title ILIKE $1
+                   OR wp.office_address ILIKE $1)
                  AND c.id != $2
                ORDER BY
                  CASE WHEN c.email ILIKE $1 THEN 0

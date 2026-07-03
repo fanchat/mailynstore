@@ -20,6 +20,11 @@ export default function SocialProfilePage() {
   const [viewerState, setViewerState] = useState<{ postId: number; index: number } | null>(null)
   const [toastMsg, setToastMsg] = useState("")
   const [confirmDeletePost, setConfirmDeletePost] = useState<any | null>(null)
+  const [showPostForm, setShowPostForm] = useState(false)
+  const [newContent, setNewContent] = useState("")
+  const [newMedia, setNewMedia] = useState<string[]>([])
+  const [uploadingMedia, setUploadingMedia] = useState(false)
+  const mediaInputRef = useRef<HTMLInputElement>(null)
 
   // Edit modals state
   const [showPersonalEdit, setShowPersonalEdit] = useState(false)
@@ -110,6 +115,50 @@ export default function SocialProfilePage() {
     } catch { alert("网络错误") }
   }
 
+  // ── Publish a new post ──
+  const handleMediaUpload = async (files: FileList | null) => {
+    if (!files?.length) return
+    setUploadingMedia(true)
+    const formData = new FormData()
+    formData.append("file", files[0])
+    try {
+      const res = await fetch("/api/social/media", { method: "POST", body: formData })
+      if (res.ok) {
+        const data = await res.json()
+        setNewMedia((prev) => [...prev, data.url])
+      } else {
+        const err = await res.text()
+        alert("上传失败: " + (err.length > 80 ? err.slice(0, 80) + "..." : err))
+      }
+    } catch (e) {
+      alert("上传出错: " + (e instanceof Error ? e.message : String(e)))
+    }
+    setUploadingMedia(false)
+  }
+
+  const handleRemoveMedia = (url: string) => {
+    setNewMedia((prev) => prev.filter((u) => u !== url))
+  }
+
+  const handlePublish = async () => {
+    if (!newContent.trim() && newMedia.length === 0) return
+    try {
+      const res = await fetch("/api/social/posts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "personal",
+          content: newContent.trim(),
+          media_urls: newMedia.length > 0 ? newMedia : undefined,
+        }),
+      })
+      if (res.ok) {
+        setNewContent(""); setNewMedia([]); setShowPostForm(false)
+        loadMyPosts()
+      } else alert("发布失败")
+    } catch { alert("网络错误") }
+  }
+
   useEffect(() => {
     loadProfile()
     loadMyPosts()
@@ -135,7 +184,8 @@ export default function SocialProfilePage() {
         body: formData,
       })
       if (res.ok) {
-        await loadProfile()
+        const { url } = await res.json()
+        setProfile(prev => prev ? { ...prev, avatar: url } : prev)
       } else {
         alert("上传失败")
       }
@@ -299,7 +349,7 @@ export default function SocialProfilePage() {
         </div>
         {profile.region && (
           <div className="text-sm text-gray-600 flex items-center gap-1.5 mb-1.5">
-            <span>🌍</span> {profile.region}
+            <span>🏠</span> {profile.region}
           </div>
         )}
         {profile.gender !== undefined && profile.gender > 0 && (
@@ -321,13 +371,71 @@ export default function SocialProfilePage() {
       <div className="mt-6">
         <div className="flex items-center justify-between mb-3">
           <div className="font-medium text-sm">我的最近动态</div>
-          <Link
-            href={`/${countryCode}/social/new-post?scope=personal`}
+          <button
+            onClick={() => setShowPostForm(!showPostForm)}
             className="px-4 py-1.5 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600"
           >
-            发布
-          </Link>
+            {showPostForm ? "收起" : "发布"}
+          </button>
         </div>
+
+        {/* ── Inline publish form ── */}
+        {showPostForm && (
+          <div className="bg-white rounded-lg shadow-sm mb-4 p-4 space-y-3">
+            <textarea
+              value={newContent}
+              onChange={(e) => setNewContent(e.target.value)}
+              placeholder="分享新鲜事..."
+              rows={3}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400 resize-none"
+            />
+            {/* Media thumbnails */}
+            {newMedia.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {newMedia.map((url, i) => (
+                  <div key={i} className="relative w-16 h-16 rounded overflow-hidden group">
+                    {/\.(mp4|mov|avi|webm)$/i.test(url) ? (
+                      <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500 text-lg">▶</div>
+                    ) : (
+                      <img src={url} alt="" className="w-full h-full object-cover" />
+                    )}
+                    <button
+                      onClick={() => handleRemoveMedia(url)}
+                      className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {/* Add media button */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => mediaInputRef.current?.click()}
+                disabled={uploadingMedia}
+                className="text-sm text-gray-500 flex items-center gap-1 px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              >
+                {uploadingMedia ? "上传中..." : "📷 添加图片/视频"}
+              </button>
+              <input
+                ref={mediaInputRef}
+                type="file"
+                accept="image/*,video/*"
+                className="hidden"
+                onChange={(e) => { handleMediaUpload(e.target.files); e.target.value = "" }}
+              />
+              <span className="text-xs text-gray-400 ml-auto">发布到个人动态</span>
+              <button
+                onClick={handlePublish}
+                disabled={!newContent.trim() && newMedia.length === 0}
+                className="text-sm text-white bg-blue-500 px-4 py-1.5 rounded-lg hover:bg-blue-600 disabled:opacity-50"
+              >
+                发送
+              </button>
+            </div>
+          </div>
+        )}
         {loadingPosts ? (
           <div className="text-center text-gray-400 py-4">加载中...</div>
         ) : privatePosts.length === 0 ? (
@@ -483,13 +591,39 @@ function PostEditModal({
   onClose: () => void
 }) {
   const [content, setContent] = useState(post.content || "")
-  const [type, setType] = useState(post.type || "personal")
+  const [editMedia, setEditMedia] = useState<string[]>(post.media_urls ? [...post.media_urls] : [])
+  const [uploadingMedia, setUploadingMedia] = useState(false)
   const [saving, setSaving] = useState(false)
+  const mediaInputRef = useRef<HTMLInputElement>(null)
+
+  const handleUpload = async (files: FileList | null) => {
+    if (!files?.length) return
+    setUploadingMedia(true)
+    const formData = new FormData()
+    formData.append("file", files[0])
+    try {
+      const res = await fetch("/api/social/media", { method: "POST", body: formData })
+      if (res.ok) {
+        const data = await res.json()
+        setEditMedia((prev) => [...prev, data.url])
+      } else {
+        const err = await res.text()
+        alert("上传失败: " + (err.length > 80 ? err.slice(0, 80) + "..." : err))
+      }
+    } catch (e) {
+      alert("上传出错: " + (e instanceof Error ? e.message : String(e)))
+    }
+    setUploadingMedia(false)
+  }
+
+  const handleRemove = (url: string) => {
+    setEditMedia((prev) => prev.filter((u) => u !== url))
+  }
 
   const handleSave = async () => {
     setSaving(true)
     try {
-      await onSave(post.id, { content: content.trim(), type })
+      await onSave(post.id, { content: content.trim(), media_urls: editMedia.length > 0 ? editMedia : undefined })
     } finally {
       setSaving(false)
     }
@@ -514,28 +648,41 @@ function PostEditModal({
             rows={4}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400 resize-none"
           />
-          <div>
-            <div className="text-sm text-gray-500 mb-2">发布到</div>
-            <div className="flex gap-2">
-              {[
-                { label: "个人动态", value: "personal" },
-                { label: "朋友圈", value: "friend" },
-                { label: "工作圈", value: "work" },
-              ].map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => setType(opt.value)}
-                  className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
-                    type === opt.value
-                      ? "bg-blue-500 text-white border-blue-500"
-                      : "bg-white text-gray-600 border-gray-300 hover:border-blue-400"
-                  }`}
-                >
-                  {opt.label}
-                </button>
+          {/* Media thumbnails */}
+          {editMedia.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {editMedia.map((url, i) => (
+                <div key={i} className="relative w-16 h-16 rounded overflow-hidden group">
+                  {/\.(mp4|mov|avi|webm)$/i.test(url) ? (
+                    <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500 text-lg">▶</div>
+                  ) : (
+                    <img src={url} alt="" className="w-full h-full object-cover" />
+                  )}
+                  <button
+                    onClick={() => handleRemove(url)}
+                    className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+                  >
+                    ×
+                  </button>
+                </div>
               ))}
             </div>
-          </div>
+          )}
+          {/* Add media */}
+          <button
+            onClick={() => mediaInputRef.current?.click()}
+            disabled={uploadingMedia}
+            className="text-sm text-gray-500 flex items-center gap-1 px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+          >
+            {uploadingMedia ? "上传中..." : "📷 添加图片/视频"}
+          </button>
+          <input
+            ref={mediaInputRef}
+            type="file"
+            accept="image/*,video/*"
+            className="hidden"
+            onChange={(e) => { handleUpload(e.target.files); e.target.value = "" }}
+          />
         </div>
         <div className="flex gap-3 px-4 py-3 border-t">
           <button onClick={onClose} className="flex-1 py-2 text-sm text-gray-500 border border-gray-300 rounded-lg hover:bg-gray-50">
@@ -640,7 +787,7 @@ function PersonalEditModal({
 
           {/* 地区 */}
           <div>
-            <div className="text-sm text-gray-500 mb-1">地区</div>
+            <div className="text-sm text-gray-500 mb-1">个人住址</div>
             <input
               type="text"
               value={region}
@@ -773,12 +920,12 @@ function WorkEditModal({
             />
           </div>
           <div>
-            <div className="text-sm text-gray-500 mb-1">办公地址</div>
+            <div className="text-sm text-gray-500 mb-1">服务区域</div>
             <input
               type="text"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
-              placeholder="办公地址"
+              placeholder="如 杭州市区、西湖区"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400"
             />
           </div>

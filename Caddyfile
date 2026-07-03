@@ -15,3 +15,8 @@ mailyn.cn:8443 {
 	reverse_proxy @uploads localhost:9000
 	reverse_proxy localhost:8000
 }
+
+# 信令服务器——独立站点，不走子路径
+ws.mailyn.cn:8443 {
+	reverse_proxy localhost:3001
+}

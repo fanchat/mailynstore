@@ -3,11 +3,14 @@ import { Pool } from "pg"
 import { getCustomerId } from "../utils"
 
 // GET /store/social/profile — get my profile with work profile
+// Optional ?customer_id=xxx to view another user's public profile
 export async function GET(req: MedusaRequest, res: MedusaResponse) {
-  const customerId = getCustomerId(req)
-  if (!customerId) {
+  const myId = getCustomerId(req)
+  if (!myId) {
     return res.status(401).json({ error: "unauthorized" })
   }
+
+  const targetId = (req.query.customer_id as string) || myId
 
   try {
     const databaseUrl = process.env.DATABASE_URL!
@@ -16,7 +19,7 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
       const cust = await pool.query(
         `SELECT id, email, first_name, last_name, nickname, avatar, signature, region, gender, birthday
          FROM customer WHERE id = $1`,
-        [customerId]
+        [targetId]
       )
       if (cust.rows.length === 0) {
         return res.status(404).json({ error: "customer not found" })
@@ -26,7 +29,7 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
 
       const wp = await pool.query(
         `SELECT * FROM work_profiles WHERE customer_id = $1`,
-        [customerId]
+        [targetId]
       )
 
       return res.json({

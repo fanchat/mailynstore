@@ -1,8 +1,9 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
+import { useVoiceCall } from "../../../../../lib/useVoiceCall"
 
 interface Message {
   id: number
@@ -30,6 +31,18 @@ function formatDuration(seconds: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`
 }
 
+// Read _medusa_jwt from server-side API route (cookie is HttpOnly)
+async function getJwtToken(): Promise<string | null> {
+  try {
+    const res = await fetch("/api/auth/jwt")
+    if (!res.ok) return null
+    const data = await res.json()
+    return data.token || null
+  } catch {
+    return null
+  }
+}
+
 export default function ChatPage() {
   const params = useParams()
   const router = useRouter()
@@ -43,6 +56,7 @@ export default function ChatPage() {
   const [myId, setMyId] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const remoteAudioRef = useRef<HTMLAudioElement>(null)
 
   // Voice recording state
   const [micSupported, setMicSupported] = useState(false)
@@ -56,6 +70,20 @@ export default function ChatPage() {
   const streamRef = useRef<MediaStream | null>(null)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
+
+  // ── Voice call ──
+  const [jwtToken, setJwtToken] = useState<string | null>(null)
+
+  useEffect(() => {
+    getJwtToken().then(setJwtToken)
+  }, [])
+
+  const voiceCall = useVoiceCall({
+    convId,
+    myId: myId || "",
+    jwtToken,
+    remoteAudioRef,
+  })
 
   // Check microphone support
   useEffect(() => {
@@ -159,7 +187,6 @@ export default function ChatPage() {
       streamRef.current = stream
       audioChunksRef.current = []
 
-      // Pick best supported MIME type
       let mimeType = ""
       if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
         mimeType = "audio/webm;codecs=opus"
@@ -203,7 +230,6 @@ export default function ChatPage() {
       const mimeType = mediaRecorderRef.current?.mimeType || "audio/webm"
       const blob = new Blob(audioChunksRef.current, { type: mimeType })
 
-      // Release microphone
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop())
         streamRef.current = null
@@ -213,7 +239,6 @@ export default function ChatPage() {
       setIsUploading(true)
 
       try {
-        // Upload audio
         const formData = new FormData()
         const ext = mimeType.includes("mp4") ? "m4a" : "webm"
         formData.append("file", blob, `voice_${Date.now()}.${ext}`)
@@ -225,7 +250,6 @@ export default function ChatPage() {
         if (!uploadRes.ok) throw new Error("upload_failed")
         const { url } = await uploadRes.json()
 
-        // Send as voice message
         const msgRes = await fetch(`/api/social/conversations/${convId}/messages`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -267,14 +291,12 @@ export default function ChatPage() {
 
   const playVoice = (msgId: number, mediaUrl: string) => {
     if (playingId === msgId) {
-      // Stop current
       audioRef.current?.pause()
       audioRef.current = null
       setPlayingId(null)
       return
     }
 
-    // Stop previous
     audioRef.current?.pause()
 
     const audio = new Audio(mediaUrl)
@@ -309,63 +331,91 @@ export default function ChatPage() {
   const otherMember = conv?.members.find(m => m.id !== myId)
   const otherId = conv && myId ? (conv.members.find(m => m.id !== myId)?.id || "") : ""
   const title = otherMember?.nickname || otherMember?.email || "聊天"
+  const isOnline = true // Can check via signaling server in future
+
+  // ── Handle call button ──
+  const handleStartCall = useCallback(() => {
+    if (otherId && myId) {
+      voiceCall.startCall(otherId)
+      setRemoteUser({
+        customer_id: otherId,
+        nickname: otherMember?.nickname || null,
+        avatar: otherMember?.avatar || null,
+      })
+    }
+  }, [otherId, myId, voiceCall, otherMember])
+
+  const [remoteUser, setRemoteUser] = useState<{ customer_id: string; nickname: string | null; avatar: string | null } | null>(null)
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3">
-        <button onClick={() => router.back()} className="text-gray-500 hover:text-gray-700 text-lg">
-          ←
-        </button>
-        <div className="flex items-center gap-2 flex-1">
-          <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden flex-shrink-0">
-            {otherMember?.avatar ? (
-              <img src={otherMember.avatar} alt="" className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs">
-                {(otherMember?.nickname || otherMember?.email)?.[0] || "?"}
-              </div>
-            )}
-          </div>
-          <div>
-            <div className="text-sm font-medium">{title}</div>
-            <div className="text-xs text-gray-400">{otherMember?.email}</div>
-          </div>
-        </div>
-        <Link
-          href={`/${countryCode}/social?focus=${otherId}`}
-          className="w-8 h-8 rounded-full bg-gray-100 hover:bg-blue-50 flex items-center justify-center text-gray-500 hover:text-blue-500 transition-colors flex-shrink-0"
-          title="查看好友圈子"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="w-7 h-7">
-            <path d="M4 18L24 4L44 18" fill="#C0392B" stroke="#922B21" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M8 17L24 7L40 17" fill="none" stroke="#922B21" strokeWidth="0.6" opacity="0.4"/>
-            <path d="M12 15.5L24 9L36 15.5" fill="none" stroke="#922B21" strokeWidth="0.6" opacity="0.4"/>
-            <path d="M36 7V15H30" fill="#A0522D" stroke="#6B3410" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
-            <line x1="30" y1="15" x2="36" y2="15" stroke="#6B3410" strokeWidth="1.2"/>
-            <rect x="32" y="10" width="2" height="3" rx="0.3" fill="#6B3410" opacity="0.3"/>
-            <path d="M7 18V42H41V18Z" fill="#F5DEB3" stroke="#D4B896" strokeWidth="1.2"/>
-            <line x1="7" y1="24" x2="41" y2="24" stroke="#E8D5A8" strokeWidth="0.4"/>
-            <line x1="7" y1="30" x2="41" y2="30" stroke="#E8D5A8" strokeWidth="0.4"/>
-            <line x1="7" y1="36" x2="41" y2="36" stroke="#E8D5A8" strokeWidth="0.4"/>
-            <path d="M20 42V32C20 29.8 21.8 28 24 28C26.2 28 28 29.8 28 32V42" fill="#8B6914" stroke="#6B5010" strokeWidth="1.2"/>
-            <circle cx="26" cy="35" r="1.5" fill="#FFD700" stroke="#DAA520" strokeWidth="0.5"/>
-            <path d="M20 28C20 25.8 21.8 24 24 24C26.2 24 28 25.8 28 28" fill="none" stroke="#6B5010" strokeWidth="0.8" opacity="0.5"/>
-            <rect x="11" y="24" width="8" height="8" rx="1" fill="#87CEEB" stroke="#5B8CA8" strokeWidth="1.2"/>
-            <line x1="15" y1="24" x2="15" y2="32" stroke="#5B8CA8" strokeWidth="1"/>
-            <line x1="11" y1="28" x2="19" y2="28" stroke="#5B8CA8" strokeWidth="1"/>
-            <rect x="10" y="31.5" width="10" height="1.5" rx="0.5" fill="#D4B896"/>
-            <rect x="29" y="24" width="8" height="8" rx="1" fill="#87CEEB" stroke="#5B8CA8" strokeWidth="1.2"/>
-            <line x1="33" y1="24" x2="33" y2="32" stroke="#5B8CA8" strokeWidth="1"/>
-            <line x1="29" y1="28" x2="37" y2="28" stroke="#5B8CA8" strokeWidth="1"/>
-            <rect x="28" y="31.5" width="10" height="1.5" rx="0.5" fill="#D4B896"/>
-            <rect x="6" y="40.5" width="36" height="2" rx="0.5" fill="#8B7355" opacity="0.4"/>
-          </svg>
-        </Link>
-      </div>
+    <div className="flex flex-col bg-gray-50 flex-1 min-h-0">
+      {/* Hidden audio element for remote audio */}
+      <audio ref={remoteAudioRef} autoPlay />
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+      {/* ── Top block (fixed): ← 好友名 🏠 📞 */}
+      <div className="shrink-0 bg-white border-b border-gray-200 px-4 py-4 flex items-center gap-3">
+          <button onClick={() => router.back()} className="text-gray-500 hover:text-gray-700 text-lg">
+            ←
+          </button>
+          <div className="flex items-center gap-2 flex-1">
+            <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden flex-shrink-0">
+              {otherMember?.avatar ? (
+                <img src={otherMember.avatar} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs">
+                  {(otherMember?.nickname || otherMember?.email)?.[0] || "?"}
+                </div>
+              )}
+            </div>
+            <div>
+              <div className="text-sm font-medium">{title}</div>
+              <div className="text-xs text-gray-400">{otherMember?.email}</div>
+            </div>
+          </div>
+          <Link
+            href={`/${countryCode}/social?focus=${otherId}`}
+            className="w-7 h-7 rounded-full bg-gray-100 hover:bg-blue-50 flex items-center justify-center text-gray-500 hover:text-blue-500 transition-colors flex-shrink-0"
+            title="查看好友圈子"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="w-6 h-6">
+              <path d="M4 18L24 4L44 18" fill="#C0392B" stroke="#922B21" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M8 17L24 7L40 17" fill="none" stroke="#922B21" strokeWidth="0.6" opacity="0.4"/>
+              <path d="M12 15.5L24 9L36 15.5" fill="none" stroke="#922B21" strokeWidth="0.6" opacity="0.4"/>
+              <path d="M36 7V15H30" fill="#A0522D" stroke="#6B3410" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+              <line x1="30" y1="15" x2="36" y2="15" stroke="#6B3410" strokeWidth="1.2"/>
+              <rect x="32" y="10" width="2" height="3" rx="0.3" fill="#6B3410" opacity="0.3"/>
+              <path d="M7 18V42H41V18Z" fill="#F5DEB3" stroke="#D4B896" strokeWidth="1.2"/>
+              <line x1="7" y1="24" x2="41" y2="24" stroke="#E8D5A8" strokeWidth="0.4"/>
+              <line x1="7" y1="30" x2="41" y2="30" stroke="#E8D5A8" strokeWidth="0.4"/>
+              <line x1="7" y1="36" x2="41" y2="36" stroke="#E8D5A8" strokeWidth="0.4"/>
+              <path d="M20 42V32C20 29.8 21.8 28 24 28C26.2 28 28 29.8 28 32V42" fill="#8B6914" stroke="#6B5010" strokeWidth="1.2"/>
+              <circle cx="26" cy="35" r="1.5" fill="#FFD700" stroke="#DAA520" strokeWidth="0.5"/>
+              <path d="M20 28C20 25.8 21.8 24 24 24C26.2 24 28 25.8 28 28" fill="none" stroke="#6B5010" strokeWidth="0.8" opacity="0.5"/>
+              <rect x="11" y="24" width="8" height="8" rx="1" fill="#87CEEB" stroke="#5B8CA8" strokeWidth="1.2"/>
+              <line x1="15" y1="24" x2="15" y2="32" stroke="#5B8CA8" strokeWidth="1"/>
+              <line x1="11" y1="28" x2="19" y2="28" stroke="#5B8CA8" strokeWidth="1"/>
+              <rect x="10" y="31.5" width="10" height="1.5" rx="0.5" fill="#D4B896"/>
+              <rect x="29" y="24" width="8" height="8" rx="1" fill="#87CEEB" stroke="#5B8CA8" strokeWidth="1.2"/>
+              <line x1="33" y1="24" x2="33" y2="32" stroke="#5B8CA8" strokeWidth="1"/>
+              <line x1="29" y1="28" x2="37" y2="28" stroke="#5B8CA8" strokeWidth="1"/>
+              <rect x="28" y="31.5" width="10" height="1.5" rx="0.5" fill="#D4B896"/>
+              <rect x="6" y="40.5" width="36" height="2" rx="0.5" fill="#8B7355" opacity="0.4"/>
+            </svg>
+          </Link>
+          <button
+            onClick={handleStartCall}
+            disabled={!otherId || voiceCall.callState === "calling" || voiceCall.callState === "connected"}
+            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-green-50 flex items-center justify-center text-gray-500 hover:text-green-500 transition-colors flex-shrink-0 disabled:opacity-40"
+            title={voiceCall.callState === "connected" ? "通话中" : "语音通话"}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+              <path d="M1.5 4.5a3 3 0 013-3h1.372c.86 0 1.61.586 1.819 1.42l1.105 4.423a1.875 1.875 0 01-.694 1.955l-1.293.97c-.135.101-.164.249-.126.352a11.285 11.285 0 006.697 6.697c.103.038.25.009.352-.126l.97-1.293a1.875 1.875 0 011.955-.694l4.423 1.105c.834.209 1.42.959 1.42 1.82V19.5a3 3 0 01-3 3h-1.5a16.5 16.5 0 01-16.5-16.5V4.5z" />
+            </svg>
+          </button>
+        </div>
+
+      {/* Messages框 */}
+      <div className="flex-1 overflow-y-auto min-h-0 bg-white rounded-lg shadow-sm px-4 py-3 space-y-3">
         {messages.length === 0 ? (
           <div className="text-center text-gray-400 text-sm py-8">开始聊天吧</div>
         ) : (
@@ -422,7 +472,7 @@ export default function ChatPage() {
       </div>
 
       {/* Input bar */}
-      <div className="bg-white border-t border-gray-200 px-4 py-3">
+      <div className="flex-shrink-0 bg-white border-t border-gray-200 px-4 py-3">
         {isUploading ? (
           <div className="text-sm text-gray-400 text-center py-2">发送语音消息...</div>
         ) : (
@@ -482,6 +532,126 @@ export default function ChatPage() {
           </>
         )}
       </div>
+
+      {/* ── Incoming call modal ── */}
+      {voiceCall.incomingCall && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
+          <div className="bg-white rounded-2xl p-6 w-80 shadow-xl text-center">
+            <div className="w-16 h-16 rounded-full bg-gray-200 mx-auto mb-3 overflow-hidden">
+              {voiceCall.incomingCall.caller_avatar ? (
+                <img src={voiceCall.incomingCall.caller_avatar} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-gray-500 text-2xl">
+                  {(voiceCall.incomingCall.caller_nickname || "?")[0]}
+                </div>
+              )}
+            </div>
+            <div className="text-lg font-medium mb-1">
+              {voiceCall.incomingCall.caller_nickname || "未知用户"}
+            </div>
+            <div className="text-sm text-gray-400 mb-6">邀请你语音通话...</div>
+            <div className="flex gap-4 justify-center">
+              <button
+                onClick={voiceCall.rejectCall}
+                className="w-14 h-14 rounded-full bg-red-100 text-red-500 flex items-center justify-center hover:bg-red-200 transition-colors"
+                title="拒绝"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
+                  <path d="M3.53 2.47a.75.75 0 00-1.06 1.06l18 18a.75.75 0 101.06-1.06l-18-18zM22.5 4.5a3 3 0 00-3-3h-1.372c-.86 0-1.61.586-1.819 1.42l-1.105 4.423a1.875 1.875 0 00.694 1.955l1.293.97c.135.101.164.249.126.352a11.285 11.285 0 00-6.697 6.697c-.103.038-.25.009-.352-.126l-.97-1.293a1.875 1.875 0 00-1.955-.694L4.92 12.053c-.834.209-1.42.959-1.42 1.82V19.5a3 3 0 003 3h1.5a16.5 16.5 0 0016.5-16.5V4.5z" />
+                </svg>
+              </button>
+              <button
+                onClick={voiceCall.acceptCall}
+                className="w-14 h-14 rounded-full bg-green-100 text-green-500 flex items-center justify-center hover:bg-green-200 transition-colors animate-pulse"
+                title="接听"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
+                  <path d="M1.5 4.5a3 3 0 013-3h1.372c.86 0 1.61.586 1.819 1.42l1.105 4.423a1.875 1.875 0 01-.694 1.955l-1.293.97c-.135.101-.164.249-.126.352a11.285 11.285 0 006.697 6.697c.103.038.25.009.352-.126l.97-1.293a1.875 1.875 0 011.955-.694l4.423 1.105c.834.209 1.42.959 1.42 1.82V19.5a3 3 0 01-3 3h-1.5a16.5 16.5 0 01-16.5-16.5V4.5z" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Active call overlay ── */}
+      {voiceCall.callState === "connected" && remoteUser && (
+        <div className="fixed inset-0 z-50 bg-gray-900/90 flex flex-col items-center justify-center text-white">
+          <div className="w-20 h-20 rounded-full bg-gray-600 mb-4 overflow-hidden">
+            {remoteUser.avatar ? (
+              <img src={remoteUser.avatar} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-3xl">
+                {(remoteUser.nickname || "?")[0]}
+              </div>
+            )}
+          </div>
+          <div className="text-xl font-medium mb-1">{remoteUser.nickname || "通话中"}</div>
+          <div className="text-green-400 text-sm mb-8">
+            <span className="inline-block w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse" />
+            通话中
+          </div>
+          <div className="text-3xl font-mono mb-12 tabular-nums">
+            {voiceCall.formatDuration(voiceCall.callDuration)}
+          </div>
+          <button
+            onClick={voiceCall.hangup}
+            className="w-16 h-16 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-colors shadow-lg"
+            title="挂断"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-7 h-7">
+              <path d="M3.53 2.47a.75.75 0 00-1.06 1.06l18 18a.75.75 0 101.06-1.06l-18-18zM22.5 4.5a3 3 0 00-3-3h-1.372c-.86 0-1.61.586-1.819 1.42l-1.105 4.423a1.875 1.875 0 00.694 1.955l1.293.97c.135.101.164.249.126.352a11.285 11.285 0 00-6.697 6.697c-.103.038-.25.009-.352-.126l-.97-1.293a1.875 1.875 0 00-1.955-.694L4.92 12.053c-.834.209-1.42.959-1.42 1.82V19.5a3 3 0 003 3h1.5a16.5 16.5 0 0016.5-16.5V4.5z" />
+            </svg>
+          </button>
+          <div className="text-xs text-gray-400 mt-3">点击挂断</div>
+        </div>
+      )}
+
+      {/* ── Calling state (waiting for answer) ── */}
+      {voiceCall.callState === "calling" && (
+        <div className="fixed inset-0 z-50 bg-gray-900/90 flex flex-col items-center justify-center text-white">
+          <div className="w-20 h-20 rounded-full bg-gray-600 mb-4 overflow-hidden">
+            <div className="w-full h-full flex items-center justify-center text-3xl">
+              {(otherMember?.nickname || otherMember?.email || "?")[0]}
+            </div>
+          </div>
+          <div className="text-xl font-medium mb-1">{otherMember?.nickname || otherMember?.email || "正在呼叫..."}</div>
+          <div className="text-gray-400 text-sm mb-12">
+            <span className="inline-block w-2 h-2 bg-yellow-400 rounded-full mr-2 animate-pulse" />
+            等待对方接听...
+          </div>
+          <button
+            onClick={voiceCall.hangup}
+            className="w-16 h-16 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-colors shadow-lg"
+            title="取消"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-7 h-7">
+              <path d="M3.53 2.47a.75.75 0 00-1.06 1.06l18 18a.75.75 0 101.06-1.06l-18-18zM22.5 4.5a3 3 0 00-3-3h-1.372c-.86 0-1.61.586-1.819 1.42l-1.105 4.423a1.875 1.875 0 00.694 1.955l1.293.97c.135.101.164.249.126.352a11.285 11.285 0 00-6.697 6.697c-.103.038-.25.009-.352-.126l-.97-1.293a1.875 1.875 0 00-1.955-.694L4.92 12.053c-.834.209-1.42.959-1.42 1.82V19.5a3 3 0 003 3h1.5a16.16.16.16 0016.5-16.5V4.5z" />
+            </svg>
+          </button>
+          <div className="text-xs text-gray-400 mt-3">取消呼叫</div>
+        </div>
+      )}
+
+      {/* ── Call ended state ── */}
+      {voiceCall.callState === "ended" && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
+          <div className="bg-white rounded-2xl p-6 w-72 shadow-xl text-center">
+            <div className="text-lg font-medium mb-2">通话已结束</div>
+            {voiceCall.callDuration > 0 && (
+              <div className="text-gray-400 text-sm mb-4">
+                通话时长 {voiceCall.formatDuration(voiceCall.callDuration)}
+              </div>
+            )}
+            <button
+              onClick={() => voiceCall.hangup()}
+              className="px-6 py-2 bg-blue-500 text-white rounded-full text-sm hover:bg-blue-600"
+            >
+              返回聊天
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
