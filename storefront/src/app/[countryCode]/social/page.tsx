@@ -1,5 +1,7 @@
 "use client"
 
+export const dynamic = 'force-dynamic'
+
 import { useState, useEffect, useCallback } from "react"
 import { useParams, useSearchParams } from "next/navigation"
 import Link from "next/link"
@@ -358,12 +360,15 @@ export default function SocialFeedPage() {
   const [loading, setLoading] = useState(true)
   const [myNickname, setMyNickname] = useState("")
   const [feedType, setFeedType] = useState<"friend" | "work">("friend")
+  const [viewingFriendId, setViewingFriendId] = useState("")
+
   const searchParams = useSearchParams()
-  const focusCustomerId = searchParams.get("focus") || ""
+  const focusCustomerId = searchParams?.get("focus") || ""
 
   const loadPosts = useCallback(async (type?: string) => {
     try {
       const effectiveType = type || feedType
+      setViewingFriendId(focusCustomerId)
       let url: string
       if (focusCustomerId) {
         // Visit a friend's garden
@@ -381,7 +386,7 @@ export default function SocialFeedPage() {
       console.error("feed error", e)
     }
     setLoading(false)
-  }, [])
+  }, [feedType, focusCustomerId])
 
   useEffect(() => {
     setLoading(true)
@@ -402,12 +407,12 @@ export default function SocialFeedPage() {
   const countryCode = params.countryCode as string
 
   return (
-    <div className="max-w-lg mx-auto px-4 py-4">
+    <div className="max-w-lg mx-auto px-4 py-4 w-full">
       {/* Folder-style tabs */}
       <div className="flex mb-4 bg-gray-100 rounded-lg p-1">
         <button
           onClick={() => switchType("friend")}
-          className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
+          className={`w-1/2 py-2 text-sm font-medium rounded-md transition-all text-center ${
             feedType === "friend"
               ? "bg-white text-blue-600 shadow-sm"
               : "text-gray-500 hover:text-gray-700"
@@ -417,7 +422,7 @@ export default function SocialFeedPage() {
         </button>
         <button
           onClick={() => switchType("work")}
-          className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
+          className={`w-1/2 py-2 text-sm font-medium rounded-md transition-all text-center ${
             feedType === "work"
               ? "bg-white text-blue-600 shadow-sm"
               : "text-gray-500 hover:text-gray-700"
@@ -427,7 +432,8 @@ export default function SocialFeedPage() {
         </button>
       </div>
 
-      {/* Quick post box */}
+      {/* Quick post box — only when viewing own feed */}
+      {!viewingFriendId && (
       <div className="bg-white rounded-lg shadow-sm mb-4 p-4">
         <Link
           href={`/${countryCode}/social/new-post`}
@@ -436,13 +442,14 @@ export default function SocialFeedPage() {
           {feedType === "friend" ? "分享生活..." : "分享工作..."}
         </Link>
       </div>
+      )}
 
       {/* Feed */}
       {loading ? (
         <div className="text-center text-gray-400 py-8">加载中...</div>
       ) : posts.length === 0 ? (
         <div className="text-center text-gray-400 py-8">
-          {feedType === "friend" ? "暂无生活动态" : "暂无工作动态"}
+          {viewingFriendId ? "你的好友还没有可显示的发布" : feedType === "friend" ? "暂无生活动态" : "暂无工作动态"}
         </div>
       ) : (
         posts.map((post) => (

@@ -128,7 +128,7 @@ export default function ChatPage() {
   }
 
   const otherMember = conv?.members.find(m => m.id !== myId)
-  const otherId = otherMember?.id || ""
+  const otherId = conv && myId ? (conv.members.find(m => m.id !== myId)?.id || "") : ""
   const title = otherMember?.nickname || otherMember?.email || "聊天"
 
   return (

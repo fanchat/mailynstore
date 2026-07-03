@@ -165,7 +165,7 @@ export default function FriendsPage() {
   var unreadConvs = convs.filter(function(c: any) { return c.unread_count > 0 })
 
   return (
-    <div className="max-w-lg mx-auto px-4 py-4">
+    <div className="px-4 py-4">
       {/* Toast */}
       {toastMsg && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-gray-800 text-white text-sm px-4 py-2 rounded-full shadow-lg animate-fade-in">
