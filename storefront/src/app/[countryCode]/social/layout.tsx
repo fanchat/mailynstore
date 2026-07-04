@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useParams, usePathname } from "next/navigation"
 
@@ -13,6 +14,19 @@ export default function SocialLayout({
   const pathname = usePathname()
   const params = useParams()
   const countryCode = params.countryCode as string
+  const [isConnected, setIsConnected] = useState(true)
+
+  useEffect(() => {
+    const check = () => {
+      fetch("/api/nt/ping", { signal: AbortSignal.timeout(5000) })
+        .then(r => r.json())
+        .then(d => setIsConnected(d.ok === true))
+        .catch(() => setIsConnected(false))
+    }
+    check()
+    const interval = setInterval(check, 30000)
+    return () => clearInterval(interval)
+  }, [])
 
   const path = pathname.replace(`/${countryCode}/social`, "") || "/"
   const activeTab: Tab = path.startsWith("/friends")
@@ -72,7 +86,14 @@ export default function SocialLayout({
                 {tab.id === "friends" && "👥"}
                 {tab.id === "shop" && "🏪"}
                 {tab.id === "search" && "🔍"}
-                {tab.id === "profile" && "👤"}
+                {tab.id === "profile" && (
+                  <span className="relative inline-flex">
+                    👤
+                    <span className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-white ${
+                      isConnected ? "bg-green-400 animate-pulse" : "bg-gray-300"
+                    }`} />
+                  </span>
+                )}
               </span>
               <span>{tab.label}</span>
             </Link>
