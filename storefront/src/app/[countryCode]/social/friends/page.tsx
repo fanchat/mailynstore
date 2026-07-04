@@ -373,7 +373,8 @@ export default function FriendsPage() {
               <div>
                 <div className="text-sm text-gray-500 mb-1">输入对方邮箱</div>
                 <input
-                  type="email"
+                  type="text"
+                  inputMode="email"
                   value={addEmail}
                   onChange={(e) => setAddEmail(e.target.value)}
                   placeholder="邮箱地址"
