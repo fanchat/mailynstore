@@ -1,0 +1,60 @@
+# Mac Mini Medusa Server - Caddyfile
+
+:80 {
+    # CORS headers for API
+    header Access-Control-Allow-Origin "*"
+    header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+    header Access-Control-Allow-Headers "Content-Type, Authorization, x-publishable-api-key"
+
+    # WebSocket signaling for voice calls
+    @ws-call {
+        path /ws-call*
+    }
+    reverse_proxy @ws-call localhost:3001
+
+    # Mailyn Admin Panel (chat admin)
+    @admin {
+        path /chatadmin*
+    }
+    reverse_proxy @admin localhost:7777
+
+    # Medusa Admin Dashboard
+    handle_path /shopadmin/* {
+        reverse_proxy localhost:9000
+    }
+
+    # Storefront API routes (network test, social, etc.)
+    handle /api/nt/* {
+        reverse_proxy localhost:8000
+    }
+
+    # Social API — goes through storefront proxy so auth cookie is forwarded
+    handle /api/social/* {
+        reverse_proxy localhost:8000
+    }
+
+    # Carousel API — goes through storefront proxy
+    handle /api/carousel {
+        reverse_proxy localhost:8000
+    }
+
+    # Medusa Auth API
+    handle /auth/* {
+        reverse_proxy localhost:9000
+    }
+
+    # Medusa API
+    handle_path /api/* {
+        reverse_proxy localhost:9000
+    }
+
+    # Medusa uploads (preserve path prefix so Medusa routes match)
+    handle /uploads/* {
+        reverse_proxy localhost:9000
+    }
+
+    # Storefront (everything else)
+    handle {
+        reverse_proxy localhost:8000
+    }
+}

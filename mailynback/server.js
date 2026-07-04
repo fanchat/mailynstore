@@ -249,6 +249,104 @@ app.get("/chatadmin/api/messages/search", requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
+// ── multer for image upload ──
+const multer = require("multer")
+const carouselUpload = multer({
+  dest: path.join(__dirname, "public", "uploads", "carousel"),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const ok = [".jpg", ".jpeg", ".png", ".webp", ".gif"].includes(path.extname(file.originalname).toLowerCase())
+    cb(null, ok)
+  },
+})
+
+// ── Carousel CRUD ──
+
+// List all carousel items (admin)
+app.get("/chatadmin/api/carousel", requireAuth, async (req, res) => {
+  try {
+    const r = await pool.query("SELECT * FROM carousel_items ORDER BY sort_order ASC, id ASC")
+    res.json({ data: r.rows })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// Public: get active carousel items (no auth)
+app.get("/chatadmin/api/carousel/public", async (req, res) => {
+  try {
+    const r = await pool.query(
+      "SELECT id, title, subtitle, image_url, link_url, sort_order FROM carousel_items WHERE is_active = true ORDER BY sort_order ASC, id ASC"
+    )
+    res.setHeader("Access-Control-Allow-Origin", "*")
+    res.json({ data: r.rows })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// Create carousel item
+app.post("/chatadmin/api/carousel", requireAuth, carouselUpload.single("image"), async (req, res) => {
+  try {
+    const { title, subtitle, link_url, sort_order } = req.body
+    const maxRes = await pool.query("SELECT COALESCE(MAX(sort_order), -1) + 1 AS next FROM carousel_items")
+    const order = sort_order ?? maxRes.rows[0].next
+    let imageUrl = ""
+    if (req.file) {
+      const ext = path.extname(req.file.originalname).toLowerCase()
+      const filename = `carousel_${Date.now()}${ext}`
+      const dest = path.join(__dirname, "public", "uploads", "carousel", filename)
+      require("fs").renameSync(req.file.path, dest)
+      imageUrl = `/chatadmin/uploads/carousel/${filename}`
+    }
+    const r = await pool.query(
+      `INSERT INTO carousel_items (title, subtitle, image_url, link_url, sort_order)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [title || "", subtitle || "", imageUrl, link_url || "", order]
+    )
+    res.json({ data: r.rows[0] })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// Update carousel item
+app.put("/chatadmin/api/carousel/:id", requireAuth, carouselUpload.single("image"), async (req, res) => {
+  try {
+    const { id } = req.params
+    const { title, subtitle, link_url, sort_order, is_active } = req.body
+    const fields = []
+    const params = []
+    let idx = 1
+
+    if (title !== undefined) { fields.push(`title = $${idx++}`); params.push(title) }
+    if (subtitle !== undefined) { fields.push(`subtitle = $${idx++}`); params.push(subtitle) }
+    if (link_url !== undefined) { fields.push(`link_url = $${idx++}`); params.push(link_url) }
+    if (sort_order !== undefined) { fields.push(`sort_order = $${idx++}`); params.push(parseInt(sort_order)) }
+    if (is_active !== undefined) { fields.push(`is_active = $${idx++}`); params.push(is_active === "true" || is_active === true) }
+    if (req.file) {
+      const ext = path.extname(req.file.originalname).toLowerCase()
+      const filename = `carousel_${Date.now()}${ext}`
+      const dest = path.join(__dirname, "public", "uploads", "carousel", filename)
+      require("fs").renameSync(req.file.path, dest)
+      fields.push(`image_url = $${idx++}`)
+      params.push(`/chatadmin/uploads/carousel/${filename}`)
+    }
+    if (fields.length === 0) return res.status(400).json({ error: "no fields to update" })
+    fields.push(`updated_at = NOW()`)
+    params.push(id)
+    const r = await pool.query(
+      `UPDATE carousel_items SET ${fields.join(", ")} WHERE id = $${idx} RETURNING *`,
+      params
+    )
+    if (!r.rows.length) return res.status(404).json({ error: "not found" })
+    res.json({ data: r.rows[0] })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// Delete carousel item
+app.delete("/chatadmin/api/carousel/:id", requireAuth, async (req, res) => {
+  try {
+    const r = await pool.query("DELETE FROM carousel_items WHERE id = $1 RETURNING *", [req.params.id])
+    if (!r.rows.length) return res.status(404).json({ error: "not found" })
+    res.json({ ok: true })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
 // ── Start ──
 app.listen(PORT, () => {
   console.log(`[mailynback] Admin panel running on http://localhost:${PORT}`)

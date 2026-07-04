@@ -262,6 +262,7 @@ export function useVoiceCall({ convId, myId, jwtToken, remoteAudioRef }: UseVoic
     })
 
     socket.on("call:ended", () => {
+      stopTimer()  // 先显式停计时器，防止 cleanup 未及时执行
       cleanup()
       setCallState("ended")
     })
@@ -387,6 +388,15 @@ export function useVoiceCall({ convId, myId, jwtToken, remoteAudioRef }: UseVoic
 
       pc.oniceconnectionstatechange = () => {
         if (pc.iceConnectionState === "disconnected" || pc.iceConnectionState === "failed") {
+          stopTimer()
+          cleanup()
+          setCallState("ended")
+        }
+      }
+      // connectionState 比 iceConnectionState 更快检测到断线
+      pc.onconnectionstatechange = () => {
+        if (pc.connectionState === "disconnected" || pc.connectionState === "failed" || pc.connectionState === "closed") {
+          stopTimer()
           cleanup()
           setCallState("ended")
         }
@@ -458,6 +468,14 @@ export function useVoiceCall({ convId, myId, jwtToken, remoteAudioRef }: UseVoic
 
       pc.oniceconnectionstatechange = () => {
         if (pc.iceConnectionState === "disconnected" || pc.iceConnectionState === "failed") {
+          stopTimer()
+          cleanup()
+          setCallState("ended")
+        }
+      }
+      pc.onconnectionstatechange = () => {
+        if (pc.connectionState === "disconnected" || pc.connectionState === "failed" || pc.connectionState === "closed") {
+          stopTimer()
           cleanup()
           setCallState("ended")
         }

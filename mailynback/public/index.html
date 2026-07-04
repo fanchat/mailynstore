@@ -140,6 +140,7 @@ tr.clickable { cursor: pointer; }
       <a data-page="conversations" onclick="showPage('conversations')">💬 聊天</a>
       <a data-page="messages" onclick="showPage('messages')">🔎 消息搜索</a>
       <a data-page="posts" onclick="showPage('posts')">📝 帖子</a>
+      <a data-page="carousel" onclick="showPage('carousel')">🖼️ 轮播</a>
     </nav>
     <div class="logout" onclick="logout()">退出登录</div>
   </div>
@@ -208,9 +209,9 @@ function logout() {
 function showPage(name) {
   currentPage = name
   document.querySelectorAll(".sidebar nav a").forEach(a => a.classList.toggle("active", a.dataset.page === name))
-  const titles = { dashboard: "📊 概览", users: "👥 用户管理", conversations: "💬 聊天管理", messages: "🔎 消息搜索", posts: "📝 帖子管理" }
+  const titles = { dashboard: "📊 概览", users: "👥 用户管理", conversations: "💬 聊天管理", messages: "🔎 消息搜索", posts: "📝 帖子管理", carousel: "🖼️ 轮播管理" }
   document.getElementById("page-title").textContent = titles[name] || name
-  const fns = { dashboard: renderDashboard, users: () => renderUsers(), conversations: () => renderConversations(), messages: () => renderMessages(), posts: () => renderPosts() }
+  const fns = { dashboard: renderDashboard, users: () => renderUsers(), conversations: () => renderConversations(), messages: () => renderMessages(), posts: () => renderPosts(), carousel: () => renderCarousel() }
   if (fns[name]) fns[name]()
 }
 
@@ -551,6 +552,138 @@ async function renderPosts(page = 1) {
     </table>
     ${pagination(res.total, res.page, res.limit, 'renderPosts')}
   `
+}
+
+// ═════════════════════════════════════ CAROUSEL ═══════════════════════════════
+
+let editingCarouselId = null
+
+async function renderCarousel() {
+  const el = document.getElementById("page-content")
+  el.innerHTML = `
+    <div style="margin-bottom:16px">
+      <button class="btn-sm btn-primary" onclick="openCarouselModal()">＋ 添加轮播项</button>
+    </div>
+    <div id="carousel-list"><div class="empty">加载中...</div></div>
+  `
+  await loadCarousel()
+}
+
+async function loadCarousel() {
+  const res = await api("GET", "/carousel")
+  if (!res) return
+  const el = document.getElementById("carousel-list")
+  if (!res.data || !res.data.length) {
+    el.innerHTML = '<div class="empty">暂无轮播项，点击上方按钮添加</div>'
+    return
+  }
+  el.innerHTML = `
+    <table>
+      <tr><th>排序</th><th>图片</th><th>标题</th><th>副标题</th><th>链接</th><th>状态</th><th>操作</th></tr>
+      ${res.data.map(item => `
+        <tr>
+          <td>${item.sort_order}</td>
+          <td>${item.image_url ? `<img src="${esc(item.image_url)}" style="width:80px;height:45px;object-fit:cover;border-radius:4px">` : '<span style="color:#9ca3af">无</span>'}</td>
+          <td>${esc(item.title || '-')}</td>
+          <td>${esc(item.subtitle || '-')}</td>
+          <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(item.link_url || '-')}</td>
+          <td><span class="tag ${item.is_active ? 'tag-green' : 'tag-gray'}">${item.is_active ? '显示' : '隐藏'}</span></td>
+          <td>
+            <button class="btn-sm btn-primary" onclick="openCarouselModal(${item.id})" style="margin-right:4px">编辑</button>
+            <button class="btn-sm btn-danger" onclick="deleteCarousel(${item.id})">删除</button>
+          </td>
+        </tr>
+      `).join("")}
+    </table>
+  `
+}
+
+function openCarouselModal(id) {
+  editingCarouselId = id || null
+  const overlay = document.createElement("div")
+  overlay.className = "confirm-overlay"
+  overlay.id = "carousel-modal"
+  const item = id ? (window._carouselData || []).find(i => i.id === id) : null
+  overlay.innerHTML = `
+    <div class="confirm-box" style="min-width:450px">
+      <h4>${id ? '编辑轮播项' : '添加轮播项'}</h4>
+      <div style="margin-top:16px">
+        <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px">图片</label>
+        <input type="file" id="carousel-image" accept="image/*" style="margin-bottom:12px;font-size:13px">
+        ${item?.image_url ? `<div style="margin-bottom:12px"><img src="${esc(item.image_url)}" style="max-width:200px;max-height:100px;border-radius:4px"></div>` : ''}
+
+        <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px">标题</label>
+        <input type="text" id="carousel-title" value="${esc(item?.title || '')}" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-bottom:12px;font-size:14px">
+
+        <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px">副标题</label>
+        <input type="text" id="carousel-subtitle" value="${esc(item?.subtitle || '')}" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-bottom:12px;font-size:14px">
+
+        <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px">链接地址</label>
+        <input type="text" id="carousel-link" value="${esc(item?.link_url || '')}" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-bottom:12px;font-size:14px" placeholder="/dk/products">
+
+        <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px">排序</label>
+        <input type="number" id="carousel-order" value="${item?.sort_order ?? 0}" style="width:80px;padding:8px;border:1px solid #d1d5db;border-radius:6px;margin-bottom:12px;font-size:14px">
+
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:16px">
+          <input type="checkbox" id="carousel-active" ${item?.is_active !== false ? 'checked' : ''}> 显示
+        </label>
+      </div>
+      <div class="actions">
+        <button class="btn-sm" onclick="document.getElementById('carousel-modal').remove()">取消</button>
+        <button class="btn-sm btn-primary" onclick="saveCarousel()">保存</button>
+      </div>
+    </div>
+  `
+  document.body.appendChild(overlay)
+  // Store item data for editing
+  if (!window._carouselData && res?.data) window._carouselData = res.data
+}
+
+async function saveCarousel() {
+  const title = document.getElementById("carousel-title").value
+  const subtitle = document.getElementById("carousel-subtitle").value
+  const link_url = document.getElementById("carousel-link").value
+  const sort_order = document.getElementById("carousel-order").value
+  const is_active = document.getElementById("carousel-active").checked
+  const imageFile = document.getElementById("carousel-image").files[0]
+
+  const formData = new FormData()
+  formData.append("title", title)
+  formData.append("subtitle", subtitle)
+  formData.append("link_url", link_url)
+  formData.append("sort_order", sort_order)
+  formData.append("is_active", is_active)
+  if (imageFile) formData.append("image", imageFile)
+
+  let res
+  if (editingCarouselId) {
+    res = await fetch(BASE + "/carousel/" + editingCarouselId, {
+      method: "PUT",
+      headers: { Authorization: *** ${TOKEN}` },
+      body: formData,
+    })
+  } else {
+    res = await fetch(BASE + "/carousel", {
+      method: "POST",
+      headers: { Authorization: *** ${TOKEN}` },
+      body: formData,
+    })
+  }
+  const data = await res.json()
+  if (!res.ok) { toast(data.error || "保存失败", "error"); return }
+  document.getElementById("carousel-modal").remove()
+  toast("保存成功", "success")
+  // Reload carousel list to refresh _carouselData
+  window._carouselData = null
+  renderCarousel()
+}
+
+async function deleteCarousel(id) {
+  if (!confirm("确定删除这个轮播项？")) return
+  const res = await api("DELETE", "/carousel/" + id)
+  if (!res) return
+  toast("已删除", "success")
+  renderCarousel()
 }
 
 // ══════════════════════════════════════ UTILS ══════════════════════════════════
