@@ -11,8 +11,12 @@ mailyn.cn:8443 {
 	@uploads {
 		path /uploads/*
 	}
+	@ws-call {
+		path /ws-call*
+	}
 	reverse_proxy @umami localhost:3000
 	reverse_proxy @uploads localhost:9000
+	reverse_proxy @ws-call localhost:3001
 	reverse_proxy localhost:8000
 }
 
