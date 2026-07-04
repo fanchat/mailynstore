@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname, useParams } from "next/navigation"
 
@@ -9,6 +10,19 @@ export default function StoreBottomNav() {
   const pathname = usePathname()
   const params = useParams()
   const countryCode = params.countryCode as string
+  const [isConnected, setIsConnected] = useState(true)
+
+  useEffect(() => {
+    const check = () => {
+      fetch("/api/nt/ping", { signal: AbortSignal.timeout(5000) })
+        .then(r => r.json())
+        .then(d => setIsConnected(d.ok === true))
+        .catch(() => setIsConnected(false))
+    }
+    check()
+    const interval = setInterval(check, 30000)
+    return () => clearInterval(interval)
+  }, [])
 
   // Extract the meaningful path segment after countryCode
   const regex = new RegExp(`^/${countryCode}(/.*)?$`)
@@ -49,7 +63,14 @@ export default function StoreBottomNav() {
                 : "text-gray-500"
             }`}
           >
-            <span className="text-lg mb-0.5">{tab.icon}</span>
+            <span className="text-lg mb-0.5">{tab.id === "account" ? (
+              <span className="relative inline-flex">
+                {tab.icon}
+                <span className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-white ${
+                  isConnected ? "bg-green-400 animate-pulse" : "bg-gray-300"
+                }`} />
+              </span>
+            ) : tab.icon}</span>
             <span>{tab.label}</span>
           </Link>
         ))}
