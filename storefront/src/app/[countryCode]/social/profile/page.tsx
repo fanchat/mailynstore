@@ -370,7 +370,12 @@ export default function SocialProfilePage() {
             <>
               {wpGender !== undefined && wpGender > 0 && (
                 <div className="text-sm text-gray-600 flex items-center gap-1.5 mb-1.5">
-                  <span>⚤</span> {Number(wpGender) === 1 ? "男" : "女"}
+                  <span className="flex items-center justify-center w-5 h-4 shrink-0">
+                    <svg viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4 text-gray-500">
+                      <path d="M8 0a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM3 12a3 3 0 0 0-3 3v1h16v-1a3 3 0 0 0-3-3H3z"/>
+                    </svg>
+                  </span>
+                  {Number(wpGender) === 1 ? "男" : "女"}
                 </div>
               )}
               {wpBirthday && (
