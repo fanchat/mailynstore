@@ -6,6 +6,15 @@ import Link from "next/link"
 import MediaViewer from "../components/MediaViewer"
 import ConfirmDialog from "../components/ConfirmDialog"
 
+const calcAge = (birthday: string) => {
+  const birth = new Date(birthday)
+  const today = new Date()
+  let age = today.getFullYear() - birth.getFullYear()
+  const m = today.getMonth() - birth.getMonth()
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--
+  return age
+}
+
 export default function SocialProfilePage() {
   const [profile, setProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -366,7 +375,7 @@ export default function SocialProfilePage() {
               )}
               {wpBirthday && (
                 <div className="text-sm text-gray-600 flex items-center gap-1.5 mb-1.5">
-                  <span>🎂</span> {wpBirthday.split('T')[0]}
+                  <span>🎂</span> {calcAge(wpBirthday) + "岁"}
                 </div>
               )}
               {!hasInfo && <div className="text-sm text-gray-400">暂无资料</div>}

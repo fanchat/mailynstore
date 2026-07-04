@@ -8,6 +8,15 @@ import Link from "next/link"
 import MediaViewer from "./components/MediaViewer"
 import ConfirmDialog from "./components/ConfirmDialog"
 
+const calcAge = (birthday: string) => {
+  const birth = new Date(birthday)
+  const today = new Date()
+  let age = today.getFullYear() - birth.getFullYear()
+  const m = today.getMonth() - birth.getMonth()
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--
+  return age
+}
+
 interface Post {
   id: number
   customer_id: string
@@ -464,7 +473,7 @@ export default function SocialFeedPage() {
                 </div>
                 <div className="flex items-start gap-2.5">
                   <span className="mt-0.5 flex-shrink-0 w-5 text-center text-base">🎂</span>
-                  <span className="text-gray-700">{wp.birthday ? wp.birthday.split('T')[0] : <span className="text-gray-400">待补充</span>}</span>
+                  <span className="text-gray-700">{wp.birthday ? calcAge(wp.birthday) + "岁" : <span className="text-gray-400">待补充</span>}</span>
                 </div>
               </div>
 
