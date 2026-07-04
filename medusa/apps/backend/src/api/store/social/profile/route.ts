@@ -62,12 +62,13 @@ export async function PUT(req: MedusaRequest, res: MedusaResponse) {
   }
 
   const { nickname, signature, region, gender, birthday,
-          work_profile } = req.body as {
+          display_name, work_profile } = req.body as {
     nickname?: string
     signature?: string
     region?: string
     gender?: number
     birthday?: string
+    display_name?: string
     work_profile?: {
       company_name?: string
       job_title?: string
@@ -100,34 +101,42 @@ export async function PUT(req: MedusaRequest, res: MedusaResponse) {
         )
       }
 
-      // Update work profile (upsert)
-      if (work_profile) {
+      // Update work profile (upsert) — handle both top-level and work_profile fields
+      if (work_profile || display_name !== undefined || gender !== undefined || birthday !== undefined) {
         const existing = await pool.query(
           `SELECT id FROM work_profiles WHERE customer_id = $1`,
           [customerId]
         )
 
-        const wpData = {
-          company_name: work_profile.company_name || null,
-          job_title: work_profile.job_title || null,
-          services: work_profile.services ? JSON.stringify(work_profile.services) : null,
-          office_address: work_profile.office_address || null,
-          contact: work_profile.contact || null,
-        }
+        const wpCompany = work_profile?.company_name || null
+        const wpTitle = work_profile?.job_title || null
+        const wpServices = work_profile?.services ? JSON.stringify(work_profile.services) : null
+        const wpAddress = work_profile?.office_address || null
+        const wpContact = work_profile?.contact || null
 
         if (existing.rows.length > 0) {
           await pool.query(
-            `UPDATE work_profiles SET company_name = $1, job_title = $2, services = $3,
-             office_address = $4, contact = $5 WHERE customer_id = $6`,
-            [wpData.company_name, wpData.job_title, wpData.services,
-             wpData.office_address, wpData.contact, customerId]
+            `UPDATE work_profiles SET
+               company_name = COALESCE($1, company_name),
+               job_title = COALESCE($2, job_title),
+               services = COALESCE($3, services),
+               office_address = COALESCE($4, office_address),
+               contact = COALESCE($5, contact),
+               display_name = COALESCE($6, display_name),
+               gender = COALESCE($7, gender),
+               birthday = COALESCE($8, birthday)
+             WHERE customer_id = $9`,
+            [wpCompany, wpTitle, wpServices, wpAddress, wpContact,
+             display_name ?? null, gender ?? null, birthday ?? null, customerId]
           )
         } else {
           await pool.query(
-            `INSERT INTO work_profiles (customer_id, company_name, job_title, services, office_address, contact)
-             VALUES ($1, $2, $3, $4, $5, $6)`,
-            [customerId, wpData.company_name, wpData.job_title, wpData.services,
-             wpData.office_address, wpData.contact]
+            `INSERT INTO work_profiles
+               (customer_id, company_name, job_title, services, office_address, contact,
+                display_name, gender, birthday)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+            [customerId, wpCompany, wpTitle, wpServices, wpAddress, wpContact,
+             display_name ?? null, gender ?? 0, birthday ?? null]
           )
         }
       }

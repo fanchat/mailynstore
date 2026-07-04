@@ -427,8 +427,13 @@ export default function SocialFeedPage() {
         const services: string[] = wp.services
           ? (Array.isArray(wp.services) ? wp.services : (() => { try { return JSON.parse(wp.services) } catch { return [] } })())
           : []
-        const hasInfo = wp.company_name || wp.job_title || services.length > 0 || wp.office_address || wp.contact
-        if (!hasInfo) return null
+        const hasWorkInfo = wp.company_name || wp.job_title || services.length > 0 || wp.office_address || wp.contact
+        const hasPersonalInfo = wp.display_name || (wp.gender !== undefined && wp.gender > 0) || wp.birthday
+        const showWorkSection = hasWorkInfo || wp.company_name !== undefined || wp.job_title !== undefined || wp.office_address !== undefined || wp.contact !== undefined || wp.services !== undefined
+
+        const genderLabel = wp.gender === 1 ? "男" : wp.gender === 2 ? "女" : null
+
+        if (!hasPersonalInfo && !hasWorkInfo) return null
         return (
           <div className="relative mb-5 overflow-hidden rounded-xl bg-gradient-to-br from-slate-50 via-white to-blue-50 shadow-[0_2px_12px_-3px_rgba(59,130,246,0.15)] border border-blue-100/60">
             {/* Decorative accent bar */}
@@ -438,60 +443,89 @@ export default function SocialFeedPage() {
             <div className="absolute -bottom-4 -left-4 w-16 h-16 rounded-full bg-gradient-to-tr from-cyan-100/30 to-blue-100/30 blur-lg" />
 
             <div className="relative px-4 pt-4 pb-3.5">
-              {/* Header */}
+              {/* Personal info section */}
               <div className="flex items-center gap-2 mb-3.5">
-                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-sky-500 shadow-sm">
+                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-amber-400 to-rose-400 shadow-sm">
                   <svg className="w-4.5 h-4.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
-                    <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
                   </svg>
                 </div>
-                <span className="text-base font-bold text-gray-800 tracking-wide">工作信息</span>
+                <span className="text-base font-bold text-gray-800 tracking-wide">个人资料</span>
+              </div>
+              <div className="space-y-2 mb-4 pb-4 border-b border-gray-100">
+                <div className="flex items-start gap-2.5">
+                  <span className="mt-0.5 flex-shrink-0 w-5 text-center text-base">👤</span>
+                  <span className="font-semibold text-gray-800">{wp.display_name || <span className="text-gray-400 font-normal">待补充</span>}</span>
+                </div>
+                <div className="flex items-start gap-2.5">
+                  <span className="mt-0.5 flex-shrink-0 w-5 text-center text-base">⚤</span>
+                  <span className="text-gray-700">{genderLabel || <span className="text-gray-400">待补充</span>}</span>
+                </div>
+                <div className="flex items-start gap-2.5">
+                  <span className="mt-0.5 flex-shrink-0 w-5 text-center text-base">🎂</span>
+                  <span className="text-gray-700">{wp.birthday ? wp.birthday.split('T')[0] : <span className="text-gray-400">待补充</span>}</span>
+                </div>
               </div>
 
-              <div className="space-y-2.5">
-                {wp.company_name && (
-                  <div className="flex items-start gap-2.5">
-                    <span className="mt-0.5 flex-shrink-0 w-5 text-center text-base">🏢</span>
-                    <div className="flex-1 min-w-0">
-                      <span className="font-semibold text-gray-800">{wp.company_name}</span>
-                      {wp.job_title && (
-                        <>
-                          <span className="text-gray-300 mx-1.5">·</span>
-                          <span className="text-gray-500">{wp.job_title}</span>
-                        </>
-                      )}
+              {/* Work info section */}
+              {showWorkSection && (
+                <>
+                  <div className="flex items-center gap-2 mb-3.5">
+                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-sky-500 shadow-sm">
+                      <svg className="w-4.5 h-4.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+                        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+                      </svg>
                     </div>
+                    <span className="text-base font-bold text-gray-800 tracking-wide">工作信息</span>
                   </div>
-                )}
 
-                {services.length > 0 && (
-                  <div className="flex items-start gap-2.5">
-                    <span className="mt-0.5 flex-shrink-0 w-5 text-center text-base">🔧</span>
-                    <div className="flex-1 flex flex-wrap gap-1.5">
-                      {services.map((s: string, i: number) => (
-                        <span key={i} className="inline-block px-2.5 py-1 text-xs font-medium rounded-full bg-gradient-to-r from-blue-50 to-sky-50 text-blue-700 border border-blue-200/60 shadow-[0_1px_2px_rgba(59,130,246,0.06)]">
-                          {s}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                  <div className="space-y-2.5">
+                    {wp.company_name && (
+                      <div className="flex items-start gap-2.5">
+                        <span className="mt-0.5 flex-shrink-0 w-5 text-center text-base">🏢</span>
+                        <div className="flex-1 min-w-0">
+                          <span className="font-semibold text-gray-800">{wp.company_name}</span>
+                          {wp.job_title && (
+                            <>
+                              <span className="text-gray-300 mx-1.5">·</span>
+                              <span className="text-gray-500">{wp.job_title}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
-                {wp.office_address && (
-                  <div className="flex items-start gap-2.5">
-                    <span className="mt-0.5 flex-shrink-0 w-5 text-center text-base">📍</span>
-                    <span className="text-gray-700">{wp.office_address}</span>
-                  </div>
-                )}
+                    {services.length > 0 && (
+                      <div className="flex items-start gap-2.5">
+                        <span className="mt-0.5 flex-shrink-0 w-5 text-center text-base">🔧</span>
+                        <div className="flex-1 flex flex-wrap gap-1.5">
+                          {services.map((s: string, i: number) => (
+                            <span key={i} className="inline-block px-2.5 py-1 text-xs font-medium rounded-full bg-gradient-to-r from-blue-50 to-sky-50 text-blue-700 border border-blue-200/60 shadow-[0_1px_2px_rgba(59,130,246,0.06)]">
+                              {s}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
-                {wp.contact && (
-                  <div className="flex items-start gap-2.5">
-                    <span className="mt-0.5 flex-shrink-0 w-5 text-center text-base">📞</span>
-                    <span className="text-gray-700 font-medium">{wp.contact}</span>
+                    {wp.office_address && (
+                      <div className="flex items-start gap-2.5">
+                        <span className="mt-0.5 flex-shrink-0 w-5 text-center text-base">📍</span>
+                        <span className="text-gray-700">{wp.office_address}</span>
+                      </div>
+                    )}
+
+                    {wp.contact && (
+                      <div className="flex items-start gap-2.5">
+                        <span className="mt-0.5 flex-shrink-0 w-5 text-center text-base">📞</span>
+                        <span className="text-gray-700 font-medium">{wp.contact}</span>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                </>
+              )}
             </div>
           </div>
         )

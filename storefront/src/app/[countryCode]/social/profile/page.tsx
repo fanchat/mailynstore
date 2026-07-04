@@ -352,19 +352,27 @@ export default function SocialProfilePage() {
             <span>🏠</span> {profile.region}
           </div>
         )}
-        {profile.gender !== undefined && profile.gender > 0 && (
-          <div className="text-sm text-gray-600 flex items-center gap-1.5 mb-1.5">
-            {Number(profile.gender) === 1 ? "男" : "女"}
-          </div>
-        )}
-        {profile.birthday && (
-          <div className="text-sm text-gray-600 flex items-center gap-1.5 mb-1.5">
-            <span>🎂</span> {profile.birthday.split('T')[0]}
-          </div>
-        )}
-        {!profile.region && (profile.gender === undefined || profile.gender === 0) && !profile.birthday && (
-          <div className="text-sm text-gray-400">暂无资料</div>
-        )}
+        {(() => {
+          const wp = profile.work_profile
+          const wpGender = wp?.gender
+          const wpBirthday = wp?.birthday
+          const hasInfo = profile.region || (wpGender !== undefined && wpGender > 0) || wpBirthday
+          return (
+            <>
+              {wpGender !== undefined && wpGender > 0 && (
+                <div className="text-sm text-gray-600 flex items-center gap-1.5 mb-1.5">
+                  {Number(wpGender) === 1 ? "男" : "女"}
+                </div>
+              )}
+              {wpBirthday && (
+                <div className="text-sm text-gray-600 flex items-center gap-1.5 mb-1.5">
+                  <span>🎂</span> {wpBirthday.split('T')[0]}
+                </div>
+              )}
+              {!hasInfo && <div className="text-sm text-gray-400">暂无资料</div>}
+            </>
+          )
+        })()}
       </div>
 
       {/* My recent posts */}
@@ -709,8 +717,9 @@ function PersonalEditModal({
 }) {
   const [signature, setSignature] = useState(profile.signature || "")
   const [region, setRegion] = useState(profile.region || "")
-  const [gender, setGender] = useState<number>(profile.gender || 0)
-  const [birthday, setBirthday] = useState(profile.birthday?.split('T')[0] || "")
+  const [gender, setGender] = useState<number>(profile.work_profile?.gender ?? profile.gender ?? 0)
+  const [birthday, setBirthday] = useState((profile.work_profile?.birthday || profile.birthday || "").split('T')[0] || "")
+  const [displayName, setDisplayName] = useState(profile.work_profile?.display_name || "")
   const [saving, setSaving] = useState(false)
 
   const handleSave = async () => {
@@ -724,6 +733,7 @@ function PersonalEditModal({
           region: region.trim(),
           gender,
           birthday: birthday || null,
+          display_name: displayName.trim() || null,
         }),
       })
       if (res.ok) {
@@ -752,6 +762,18 @@ function PersonalEditModal({
 
         {/* Body */}
         <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
+          {/* 称呼 */}
+          <div>
+            <div className="text-sm text-gray-500 mb-1">称呼</div>
+            <input
+              type="text"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="你希望别人怎么称呼你"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400"
+            />
+          </div>
+
           {/* 性别 */}
           <div>
             <div className="text-sm text-gray-500 mb-2">性别</div>
