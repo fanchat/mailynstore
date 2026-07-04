@@ -370,7 +370,7 @@ export default function SocialProfilePage() {
             <>
               {wpGender !== undefined && wpGender > 0 && (
                 <div className="text-sm text-gray-600 flex items-center gap-1.5 mb-1.5">
-                  {Number(wpGender) === 1 ? "男" : "女"}
+                  <span>⚤</span> {Number(wpGender) === 1 ? "男" : "女"}
                 </div>
               )}
               {wpBirthday && (
