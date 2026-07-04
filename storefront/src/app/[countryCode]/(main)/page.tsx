@@ -3,8 +3,6 @@ import dynamic from "next/dynamic"
 
 const Carousel = dynamic(() => import("@/components/Carousel"), {})
 
-import Hero from "@modules/home/components/hero"
-
 export const metadata: Metadata = {
   title: "maily's store",
   description:
@@ -17,7 +15,6 @@ export default async function Home() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <Carousel />
       </div>
-      <Hero />
     </>
   )
 }
