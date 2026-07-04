@@ -1,7 +1,7 @@
 import { Metadata } from "next"
 import dynamic from "next/dynamic"
 
-const Carousel = dynamic(() => import("@/components/Carousel"), { ssr: false })
+const Carousel = dynamic(() => import("@/components/Carousel"), {})
 
 import Hero from "@modules/home/components/hero"
 
