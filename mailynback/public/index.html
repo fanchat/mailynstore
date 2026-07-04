@@ -659,13 +659,13 @@ async function saveCarousel() {
   if (editingCarouselId) {
     res = await fetch(BASE + "/carousel/" + editingCarouselId, {
       method: "PUT",
-      headers: { Authorization: *** ${TOKEN}` },
+      headers: { Authorization: `Bearer ${TOKEN}` },
       body: formData,
     })
   } else {
     res = await fetch(BASE + "/carousel", {
       method: "POST",
-      headers: { Authorization: *** ${TOKEN}` },
+      headers: { Authorization: `Bearer ${TOKEN}` },
       body: formData,
     })
   }
