@@ -41,11 +41,13 @@ export function useVoiceCall({ convId, myId, jwtToken, remoteAudioRef }: UseVoic
   const localStreamRef = useRef<MediaStream | null>(null)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
-  // ── Audio tones (ringback / ringing) ──
+  // ── Audio tones (ringback / ringing / busy / unreachable) ──
   const toneCtxRef = useRef<AudioContext | null>(null)
   const toneOscRef = useRef<OscillatorNode | null>(null)
+  const toneOsc2Ref = useRef<OscillatorNode | null>(null)  // for dual-tone busy
   const toneGainRef = useRef<GainNode | null>(null)
   const toneTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const stopTone = useCallback(() => {
     if (toneTimerRef.current) {
@@ -55,6 +57,10 @@ export function useVoiceCall({ convId, myId, jwtToken, remoteAudioRef }: UseVoic
     if (toneOscRef.current) {
       try { toneOscRef.current.stop() } catch {}
       toneOscRef.current = null
+    }
+    if (toneOsc2Ref.current) {
+      try { toneOsc2Ref.current.stop() } catch {}
+      toneOsc2Ref.current = null
     }
     if (toneCtxRef.current) {
       try { toneCtxRef.current.close() } catch {}
@@ -129,6 +135,82 @@ export function useVoiceCall({ convId, myId, jwtToken, remoteAudioRef }: UseVoic
     // callState === "calling" → 保持 startCall 里设的回铃音
   }, [callState, startRingingTone, stopTone])
 
+  const startBusyTone = useCallback(() => {
+    stopTone()
+    try {
+      const ctx = new AudioContext()
+      const gain = ctx.createGain()
+      gain.gain.value = 0
+      // Dual-tone busy signal: 480Hz + 620Hz
+      const osc1 = ctx.createOscillator()
+      osc1.type = "sine"
+      osc1.frequency.value = 480
+      osc1.connect(gain)
+      const osc2 = ctx.createOscillator()
+      osc2.type = "sine"
+      osc2.frequency.value = 620
+      osc2.connect(gain)
+      gain.connect(ctx.destination)
+      osc1.start()
+      osc2.start()
+      toneCtxRef.current = ctx
+      toneOscRef.current = osc1
+      toneOsc2Ref.current = osc2
+      toneGainRef.current = gain
+      // 忙音: 0.5s on / 0.5s off, 2 cycles
+      let tick = 0
+      toneTimerRef.current = setInterval(() => {
+        if (!toneGainRef.current) return
+        tick++
+        const p = tick % 4 // 4 ticks × 500ms = 2s total
+        toneGainRef.current.gain.value = (p < 2) ? 0.3 : 0
+        if (p >= 3) {
+          // After 2 cycles, stop
+          stopTone()
+        }
+      }, 500)
+    } catch {}
+  }, [stopTone])
+
+  const startUnreachableTone = useCallback(() => {
+    stopTone()
+    try {
+      const ctx = new AudioContext()
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = "sine"
+      osc.frequency.value = 450
+      gain.gain.value = 0
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start()
+      toneCtxRef.current = ctx
+      toneOscRef.current = osc
+      toneGainRef.current = gain
+      // 无法接通: 3 short beeps, then auto-stop
+      let tick = 0
+      toneTimerRef.current = setInterval(() => {
+        if (!toneGainRef.current) return
+        tick++
+        const p = tick % 12 // 12 ticks × 250ms = 3s
+        const on = (p >= 1 && p <= 2) || (p >= 5 && p <= 6) || (p >= 9 && p <= 10)
+        toneGainRef.current.gain.value = on ? 0.3 : 0
+        if (p >= 11) {
+          stopTone()
+        }
+      }, 250)
+    } catch {}
+  }, [stopTone])
+
+  const [toastMessage, setToastMessage] = useState("")
+
+  const stopTimeout = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+      timeoutRef.current = null
+    }
+  }, [])
+
   // ── Connect Socket.IO ──
   useEffect(() => {
     if (!jwtToken) {
@@ -146,7 +228,7 @@ export function useVoiceCall({ convId, myId, jwtToken, remoteAudioRef }: UseVoic
 
     socket.on("connect_error", (err: Error) => {
       console.error("[voice-call] Signaling connect error:", err.message)
-      alert("❌ 信令连接失败: " + err.message)
+      setToastMessage("信令连接失败: " + err.message)
     })
 
     socket.on("call:incoming", (data: IncomingCall) => {
@@ -185,14 +267,24 @@ export function useVoiceCall({ convId, myId, jwtToken, remoteAudioRef }: UseVoic
     })
 
     socket.on("call:rejected", () => {
-      cleanup()
-      setCallState("idle")
+      stopTimeout()
+      startBusyTone()
+      setToastMessage("对方已拒绝")
+      setTimeout(() => {
+        cleanup()
+        setCallState("idle")
+      }, 2000)
     })
 
     socket.on("call:error", ({ message }: { message: string }) => {
       console.error("[voice-call] Error:", message)
-      cleanup()
-      setCallState("idle")
+      stopTimeout()
+      startUnreachableTone()
+      setToastMessage(message)
+      setTimeout(() => {
+        cleanup()
+        setCallState("idle")
+      }, 2000)
     })
 
     socket.on("disconnect", () => {
@@ -226,6 +318,7 @@ export function useVoiceCall({ convId, myId, jwtToken, remoteAudioRef }: UseVoic
 
   // ── Cleanup peer connection & media ──
   const cleanup = useCallback(() => {
+    stopTimeout()
     stopTimer()
     stopTone()
     if (pcRef.current) {
@@ -236,7 +329,7 @@ export function useVoiceCall({ convId, myId, jwtToken, remoteAudioRef }: UseVoic
       localStreamRef.current.getTracks().forEach((t) => t.stop())
       localStreamRef.current = null
     }
-  }, [stopTimer, stopTone])
+  }, [stopTimer, stopTone, stopTimeout])
 
   // ── Start a call ──
   const startCall = useCallback(async (targetId: string) => {
@@ -309,16 +402,29 @@ export function useVoiceCall({ convId, myId, jwtToken, remoteAudioRef }: UseVoic
 
       setCallState("calling")
       setRemoteUser(null) // Will be set when we know the other user
+
+      // 30s timeout — auto-hangup if no answer
+      stopTimeout()
+      timeoutRef.current = setTimeout(() => {
+        stopTimeout()
+        startUnreachableTone()
+        setToastMessage("对方暂时无法接听")
+        if (socketRef.current && targetId) {
+          socketRef.current.emit("call:hangup", { target_id: targetId })
+        }
+        cleanup()
+        setCallState("idle")
+      }, 30000)
     } catch (err: any) {
       if (err?.name === "NotAllowedError" || err?.name === "PermissionDeniedError") {
-        alert("需要麦克风权限才能通话")
+        setToastMessage("需要麦克风权限才能通话")
       } else {
-        alert("通话初始化失败：" + (err?.message || "未知错误"))
+        setToastMessage("通话初始化失败：" + (err?.message || "未知错误"))
       }
       cleanup()
       setCallState("idle")
     }
-  }, [cleanup])
+  }, [cleanup, stopTimeout, startUnreachableTone, setToastMessage])
 
   // ── Accept incoming call ──
   const acceptCall = useCallback(async () => {
@@ -411,6 +517,8 @@ export function useVoiceCall({ convId, myId, jwtToken, remoteAudioRef }: UseVoic
     callDuration,
     formatDuration,
     remoteUser,
+    toastMessage,
+    setToastMessage,
     startCall,
     acceptCall,
     rejectCall,

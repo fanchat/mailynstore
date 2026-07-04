@@ -347,9 +347,24 @@ export default function ChatPage() {
 
   const [remoteUser, setRemoteUser] = useState<{ customer_id: string; nickname: string | null; avatar: string | null } | null>(null)
 
+  // ── Auto-clear toast after 3s ──
+  useEffect(() => {
+    if (voiceCall.toastMessage) {
+      const t = setTimeout(() => voiceCall.setToastMessage(""), 3000)
+      return () => clearTimeout(t)
+    }
+  }, [voiceCall.toastMessage, voiceCall.setToastMessage])
+
   return (
     <div className="flex flex-col bg-gray-50 flex-1 min-h-0">
       {/* Hidden audio element for remote audio */}
+      {/* ── Toast notification ── */}
+      {voiceCall.toastMessage && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] bg-gray-800 text-white text-sm px-4 py-2 rounded-full shadow-lg animate-fade-in">
+          {voiceCall.toastMessage}
+        </div>
+      )}
+
       <audio ref={remoteAudioRef} autoPlay />
 
       {/* ── Top block (fixed): ← 好友名 🏠 📞 */}
@@ -571,6 +586,36 @@ export default function ChatPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── Calling overlay (等待对方接听) ── */}
+      {voiceCall.callState === "calling" && remoteUser && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex flex-col items-center justify-center text-white">
+          <div className="w-20 h-20 rounded-full bg-gray-600 mb-4 overflow-hidden">
+            {remoteUser.avatar ? (
+              <img src={remoteUser.avatar} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-3xl">
+                {(remoteUser.nickname || "?")[0]}
+              </div>
+            )}
+          </div>
+          <div className="text-xl font-medium mb-1">{remoteUser.nickname || "通话中"}</div>
+          <div className="text-amber-400 text-sm mb-8">
+            <span className="inline-block w-2 h-2 bg-amber-400 rounded-full mr-2 animate-pulse" />
+            正在呼叫...
+          </div>
+          <button
+            onClick={voiceCall.hangup}
+            className="w-16 h-16 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-colors shadow-lg"
+            title="取消"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-7 h-7">
+              <path d="M3.53 2.47a.75.75 0 00-1.06 1.06l18 18a.75.75 0 101.06-1.06l-18-18zM22.5 4.5a3 3 0 00-3-3h-1.372c-.86 0-1.61.586-1.819 1.42l-1.105 4.423a1.875 1.875 0 00.694 1.955l1.293.97c.135.101.164.249.126.352a11.285 11.285 0 00-6.697 6.697c-.103.038-.25.009-.352-.126l-.97-1.293a1.875 1.875 0 00-1.955-.694L4.92 12.053c-.834.209-1.42.959-1.42 1.82V19.5a3 3 0 003 3h1.5a16.5 16.5 0 0016.5-16.5V4.5z" />
+            </svg>
+          </button>
+          <div className="text-xs text-gray-400 mt-3">点击取消</div>
         </div>
       )}
 
