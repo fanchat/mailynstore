@@ -347,6 +347,53 @@ app.delete("/chatadmin/api/carousel/:id", requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
+// ── Page Banners (top/bottom homepage bands) ──
+
+// List all banners (admin)
+app.get("/chatadmin/api/banners", requireAuth, async (req, res) => {
+  try {
+    const r = await pool.query("SELECT * FROM page_banners ORDER BY id ASC")
+    res.json({ data: r.rows })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// Public: get all banners (no auth)
+app.get("/chatadmin/api/banners/public", async (req, res) => {
+  try {
+    const r = await pool.query("SELECT position, image_url FROM page_banners")
+    res.setHeader("Access-Control-Allow-Origin", "*")
+    const map = {}
+    for (const row of r.rows) map[row.position] = row.image_url
+    res.json({ data: map })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// Update banner image
+app.put("/chatadmin/api/banners/:position", requireAuth, carouselUpload.single("image"), async (req, res) => {
+  try {
+    const { position } = req.params
+    if (!["top", "bottom"].includes(position)) {
+      return res.status(400).json({ error: "position must be 'top' or 'bottom'" })
+    }
+    let imageUrl = ""
+    if (req.file) {
+      const ext = path.extname(req.file.originalname).toLowerCase()
+      const filename = `banner_${position}_${Date.now()}${ext}`
+      const dest = path.join(__dirname, "public", "uploads", "banners", filename)
+      require("fs").renameSync(req.file.path, dest)
+      imageUrl = `/chatadmin/uploads/banners/${filename}`
+    }
+    const r = await pool.query(
+      `INSERT INTO page_banners (position, image_url, updated_at)
+       VALUES ($1, $2, NOW())
+       ON CONFLICT (position) DO UPDATE SET image_url = $2, updated_at = NOW()
+       RETURNING *`,
+      [position, imageUrl]
+    )
+    res.json({ data: r.rows[0] })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
 // ── Start ──
 app.listen(PORT, () => {
   console.log(`[mailynback] Admin panel running on http://localhost:${PORT}`)

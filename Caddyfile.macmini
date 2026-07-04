@@ -12,11 +12,10 @@
     }
     reverse_proxy @ws-call localhost:3001
 
-    # Mailyn Admin Panel (chat admin)
-    @admin {
-        path /chatadmin*
+    # Mailyn Admin Panel (chat admin) — match both /chatadmin and /chatadmin/*
+    handle /chatadmin* {
+        reverse_proxy localhost:7777
     }
-    reverse_proxy @admin localhost:7777
 
     # Medusa Admin Dashboard
     handle_path /shopadmin/* {

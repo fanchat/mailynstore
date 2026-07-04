@@ -61,6 +61,14 @@ const nextConfig = {
         : []),
     ],
   },
+  async rewrites() {
+    return [
+      {
+        source: "/chatadmin/uploads/:path*",
+        destination: "http://localhost:7777/chatadmin/uploads/:path*",
+      },
+    ]
+  },
   // removed: /uploads/ rewrite — files now served via symlink from public/uploads/
 }
 
