@@ -48,7 +48,7 @@ export default function Carousel() {
   const item = items[current]
 
   return (
-    <div className="relative w-full overflow-hidden rounded-lg bg-gray-100" style={{ aspectRatio: "21 / 9" }}>
+    <div className="relative w-full h-[calc(100vh-120px)] overflow-hidden bg-gray-900">
       {item.image_url && (
         <img
           src={item.image_url}
@@ -56,31 +56,35 @@ export default function Carousel() {
           className="absolute inset-0 w-full h-full object-cover"
         />
       )}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-      <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
-        {item.title && <h2 className="text-xl font-bold">{item.title}</h2>}
-        {item.subtitle && <p className="text-sm opacity-90 mt-1">{item.subtitle}</p>}
+      <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-black/40 to-black/60" />
+      <div className="absolute bottom-0 left-0 right-0 p-10 text-white bg-gradient-to-t from-black/60 to-transparent">
+        {item.title && <h2 className="text-2xl md:text-4xl font-light tracking-wider">{item.title}</h2>}
+        {item.subtitle && <p className="text-sm md:text-base text-white/70 mt-2 font-light tracking-wide max-w-lg">{item.subtitle}</p>}
       </div>
       {items.length > 1 && (
         <>
           <button
             onClick={prev}
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/80 flex items-center justify-center text-gray-800 hover:bg-white transition"
+            className="absolute left-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white/70 text-xl hover:bg-white/25 hover:text-white transition border border-white/10"
           >
             ‹
           </button>
           <button
             onClick={next}
-            className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/80 flex items-center justify-center text-gray-800 hover:bg-white transition"
+            className="absolute right-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white/70 text-xl hover:bg-white/25 hover:text-white transition border border-white/10"
           >
             ›
           </button>
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
+          <div className="absolute bottom-5 left-0 right-0 z-10 flex justify-center gap-1.5">
             {items.map((_, i) => (
               <button
                 key={i}
                 onClick={() => setCurrent(i)}
-                className={`w-2 h-2 rounded-full transition ${i === current ? "bg-white" : "bg-white/40"}`}
+                className={`transition-all duration-500 rounded-full ${
+                  i === current
+                    ? "w-8 h-2 bg-white/70"
+                    : "w-2 h-2 bg-white/30 hover:bg-white/50"
+                }`}
               />
             ))}
           </div>
