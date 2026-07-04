@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
-import Link from "next/link"
 import { useVoiceCall } from "../../../../../lib/useVoiceCall"
 
 interface Message {
@@ -387,9 +386,12 @@ export default function ChatPage() {
               <div className="text-xs text-gray-400">{otherMember?.email}</div>
             </div>
           </div>
-          <Link
-            href={`/${countryCode}/social?focus=${otherId}`}
-            className="w-7 h-7 rounded-full bg-gray-100 hover:bg-blue-50 flex items-center justify-center text-gray-500 hover:text-blue-500 transition-colors flex-shrink-0"
+          <button
+            onClick={() => {
+              if (otherId) router.push(`/${countryCode}/social?focus=${otherId}`)
+            }}
+            disabled={!otherId}
+            className={`w-7 h-7 rounded-full bg-gray-100 hover:bg-blue-50 flex items-center justify-center text-gray-500 hover:text-blue-500 transition-colors flex-shrink-0 ${!otherId ? "opacity-40" : ""}`}
             title="查看好友圈子"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="w-6 h-6">
@@ -416,7 +418,7 @@ export default function ChatPage() {
               <rect x="28" y="31.5" width="10" height="1.5" rx="0.5" fill="#D4B896"/>
               <rect x="6" y="40.5" width="36" height="2" rx="0.5" fill="#8B7355" opacity="0.4"/>
             </svg>
-          </Link>
+          </button>
           <button
             onClick={handleStartCall}
             disabled={!otherId || voiceCall.callState === "calling" || voiceCall.callState === "connected"}
