@@ -306,6 +306,47 @@ export default function SocialProfilePage() {
         )}
       </div>
 
+      {/* Personal profile card */}
+      <div className="bg-white rounded-lg shadow-sm p-4 mt-4">
+        <div className="flex items-center justify-between mb-2">
+          <div className="font-medium text-sm">个人资料</div>
+          <button onClick={() => setShowPersonalEdit(true)} className="text-blue-500 text-xs hover:text-blue-600">
+            编辑
+          </button>
+        </div>
+        {profile.region && (
+          <div className="text-sm text-gray-600 flex items-center gap-1.5 mb-1.5">
+            <span>🏠</span> {profile.region}
+          </div>
+        )}
+        {(() => {
+          const wp = profile.work_profile
+          const wpGender = wp?.gender
+          const wpBirthday = wp?.birthday
+          const hasInfo = profile.region || (wpGender !== undefined && wpGender > 0) || wpBirthday
+          return (
+            <>
+              {wpGender !== undefined && wpGender > 0 && (
+                <div className="text-sm text-gray-600 flex items-center gap-1.5 mb-1.5">
+                  <span className="flex items-center justify-center w-5 h-4 shrink-0">
+                    <svg viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4 text-gray-500">
+                      <path d="M8 0a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM3 12a3 3 0 0 0-3 3v1h16v-1a3 3 0 0 0-3-3H3z"/>
+                    </svg>
+                  </span>
+                  {Number(wpGender) === 1 ? "男" : "女"}
+                </div>
+              )}
+              {wpBirthday && (
+                <div className="text-sm text-gray-600 flex items-center gap-1.5 mb-1.5">
+                  <span>🎂</span> {calcAge(wpBirthday) + "岁"}
+                </div>
+              )}
+              {!hasInfo && <div className="text-sm text-gray-400">暂无资料</div>}
+            </>
+          )
+        })()}
+      </div>
+
       {/* Work profile */}
       <div className="bg-white rounded-lg shadow-sm p-4 mt-4">
         <div className="flex items-center justify-between mb-2">
@@ -346,47 +387,6 @@ export default function SocialProfilePage() {
         ) : (
           <div className="text-sm text-gray-400">暂无工作信息，点击添加</div>
         )}
-      </div>
-
-      {/* Personal profile card */}
-      <div className="bg-white rounded-lg shadow-sm p-4 mt-4">
-        <div className="flex items-center justify-between mb-2">
-          <div className="font-medium text-sm">个人资料</div>
-          <button onClick={() => setShowPersonalEdit(true)} className="text-blue-500 text-xs hover:text-blue-600">
-            编辑
-          </button>
-        </div>
-        {profile.region && (
-          <div className="text-sm text-gray-600 flex items-center gap-1.5 mb-1.5">
-            <span>🏠</span> {profile.region}
-          </div>
-        )}
-        {(() => {
-          const wp = profile.work_profile
-          const wpGender = wp?.gender
-          const wpBirthday = wp?.birthday
-          const hasInfo = profile.region || (wpGender !== undefined && wpGender > 0) || wpBirthday
-          return (
-            <>
-              {wpGender !== undefined && wpGender > 0 && (
-                <div className="text-sm text-gray-600 flex items-center gap-1.5 mb-1.5">
-                  <span className="flex items-center justify-center w-5 h-4 shrink-0">
-                    <svg viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4 text-gray-500">
-                      <path d="M8 0a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM3 12a3 3 0 0 0-3 3v1h16v-1a3 3 0 0 0-3-3H3z"/>
-                    </svg>
-                  </span>
-                  {Number(wpGender) === 1 ? "男" : "女"}
-                </div>
-              )}
-              {wpBirthday && (
-                <div className="text-sm text-gray-600 flex items-center gap-1.5 mb-1.5">
-                  <span>🎂</span> {calcAge(wpBirthday) + "岁"}
-                </div>
-              )}
-              {!hasInfo && <div className="text-sm text-gray-400">暂无资料</div>}
-            </>
-          )
-        })()}
       </div>
 
       {/* My recent posts */}
@@ -786,6 +786,7 @@ function PersonalEditModal({
               placeholder="你希望别人怎么称呼你"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400"
             />
+            <div className="text-xs text-gray-400 mt-1">你希望在业务中别人如何称呼你</div>
           </div>
 
           {/* 性别 */}
@@ -808,6 +809,7 @@ function PersonalEditModal({
                 )
               )}
             </div>
+            <div className="text-xs text-gray-400 mt-1">有些工作会有性别选择</div>
           </div>
 
           {/* 生日 */}
@@ -819,6 +821,7 @@ function PersonalEditModal({
               onChange={(e) => setBirthday(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400"
             />
+            <div className="text-xs text-gray-400 mt-1">告诉他你的年纪</div>
           </div>
 
           {/* 地区 */}
@@ -842,6 +845,7 @@ function PersonalEditModal({
               rows={2}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400 resize-none"
             />
+            <div className="text-xs text-gray-400 mt-1">这里表示你鲜明的追求和个性</div>
           </div>
         </div>
 
