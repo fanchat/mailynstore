@@ -153,13 +153,13 @@ tr.clickable { cursor: pointer; }
 
 <script>
 const BASE = "/chatadmin/api"
-let TOKEN=localS...en")
+let TOKEN=localStorage.getItem("mb_token")
 let currentPage = "dashboard"
 let currentData = {}
 
 // ── API helper ──
 async function api(method, path, body) {
-  const opts = { method, headers: { Authorization: *** ${TOKEN}` } }
+  const opts = { method, headers: { Authorization: `Bearer ${TOKEN}` } }
   if (body) { opts.headers["Content-Type"] = "application/json"; opts.body = JSON.stringify(body) }
   const res = await fetch(BASE + path, opts)
   if (res.status === 401) { logout(); return null }
@@ -178,7 +178,7 @@ async function login() {
     const data = await res.json()
     if (!res.ok) { err.textContent = data.error || "登录失败"; return }
     err.textContent = ""
-    TOKEN=***
+    TOKEN = data.token
     localStorage.setItem("mb_token", TOKEN)
     document.getElementById("login-page").classList.add("hidden")
     document.getElementById("app").classList.remove("hidden")
@@ -201,7 +201,7 @@ function togglePwd() {
 
 function logout() {
   localStorage.removeItem("mb_token")
-  TOKEN=***
+  TOKEN = null
   document.getElementById("login-page").classList.remove("hidden")
   document.getElementById("app").classList.add("hidden")
 }
@@ -661,13 +661,13 @@ async function saveCarousel() {
   if (editingCarouselId) {
     res = await fetch(BASE + "/carousel/" + editingCarouselId, {
       method: "PUT",
-      headers: { Authorization: *** ${TOKEN}` },
+      headers: { Authorization: `Bearer ${TOKEN}` },
       body: formData,
     })
   } else {
     res = await fetch(BASE + "/carousel", {
       method: "POST",
-      headers: { Authorization: *** ${TOKEN}` },
+      headers: { Authorization: `Bearer ${TOKEN}` },
       body: formData,
     })
   }
@@ -675,7 +675,10 @@ async function saveCarousel() {
   if (!res.ok) { toast(data.error || "保存失败", "error"); return }
   document.getElementById("carousel-modal").remove()
   toast("保存成功", "success")
-  
+  // Reload carousel list to refresh _carouselData
+  window._carouselData = null
+  renderCarousel()
+}
 
 // ── Banners ──
 async function renderBanners() {
@@ -731,10 +734,7 @@ async function uploadBanner(position) {
     renderBanners()
   } catch(e) { alert("网络错误") }
 }
-// Reload carousel list to refresh _carouselData
-  window._carouselData = null
-  renderCarousel()
-}
+
 
 async function deleteCarousel(id) {
   if (!confirm("确定删除这个轮播项？")) return
@@ -778,7 +778,7 @@ function pagination(total, page, limit, fn) {
 // ══════════════════════════════════════ INIT ══════════════════════════════════
 
 if (TOKEN) {
-  fetch(BASE + "/check", { headers: { Authorization: *** ${TOKEN}` } })
+  fetch(BASE + "/check", { headers: { Authorization: `Bearer ${TOKEN}` } })
     .then(r => { if (r.ok) { document.getElementById("login-page").classList.add("hidden"); document.getElementById("app").classList.remove("hidden"); showPage("dashboard") } })
     .catch(() => {})
 }
