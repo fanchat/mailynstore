@@ -22,7 +22,7 @@ module.exports = defineConfig({
     },
   },
   admin: {
-    path: "/app",
+    path: "/shopadmin",
   },
   modules: {
     auth: {

@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>mailynback - 管理后台</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f3f4f6; color: #1f2937; font-size: 14px; }
+.hidden { display: none !important; }
+
+/* Login */
+#login-page { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #1e3a5f; }
+.login-box { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); width: 340px; }
+.login-box h1 { font-size: 24px; margin-bottom: 8px; }
+.login-box p { color: #6b7280; margin-bottom: 24px; }
+.login-box input { width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 16px; outline: none; margin-bottom: 12px; }
+.login-box input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+.login-box button { width: 100%; padding: 12px; background: #3b82f6; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; }
+.login-box button:hover { background: #2563eb; }
+.login-error { color: #ef4444; font-size: 13px; margin-top: 8px; }
+
+/* Layout */
+#app { display: flex; height: 100vh; }
+.sidebar { width: 220px; background: #1e293b; color: white; display: flex; flex-direction: column; flex-shrink: 0; }
+.sidebar h2 { padding: 20px; font-size: 18px; border-bottom: 1px solid #334155; }
+.sidebar h2 span { color: #60a5fa; }
+.sidebar nav { flex: 1; padding: 8px 0; }
+.sidebar nav a { display: flex; align-items: center; gap: 10px; padding: 12px 20px; color: #94a3b8; text-decoration: none; cursor: pointer; transition: all 0.15s; }
+.sidebar nav a:hover { background: #334155; color: #e2e8f0; }
+.sidebar nav a.active { background: #3b82f6; color: white; }
+.sidebar .logout { padding: 16px 20px; border-top: 1px solid #334155; cursor: pointer; color: #94a3b8; font-size: 13px; }
+.sidebar .logout:hover { color: #ef4444; }
+
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.topbar { padding: 16px 24px; background: white; border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; justify-content: space-between; }
+.topbar h3 { font-size: 18px; }
+.topbar .badge { background: #dbeafe; color: #1d4ed8; padding: 4px 10px; border-radius: 12px; font-size: 12px; }
+.content { flex: 1; overflow-y: auto; padding: 24px; }
+
+/* Cards */
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.stat-card { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.stat-card .num { font-size: 32px; font-weight: 700; color: #1e293b; }
+.stat-card .label { color: #6b7280; font-size: 13px; margin-top: 4px; }
+
+/* Table */
+table { width: 100%; border-collapse: collapse; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid #f3f4f6; }
+th { background: #f9fafb; font-weight: 600; font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; }
+td { font-size: 13px; }
+tr:hover td { background: #f9fafb; }
+tr.clickable { cursor: pointer; }
+
+/* Search bar */
+.search-bar { display: flex; gap: 8px; margin-bottom: 16px; }
+.search-bar input { flex: 1; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; outline: none; }
+.search-bar input:focus { border-color: #3b82f6; }
+.search-bar button { padding: 10px 20px; background: #3b82f6; color: white; border: none; border-radius: 8px; cursor: pointer; }
+
+/* Pagination */
+.pagination { display: flex; align-items: center; gap: 8px; justify-content: center; margin-top: 16px; }
+.pagination button { padding: 6px 14px; border: 1px solid #d1d5db; border-radius: 6px; background: white; cursor: pointer; font-size: 13px; }
+.pagination button:hover { background: #f3f4f6; }
+.pagination button:disabled { opacity: 0.4; cursor: default; }
+.pagination .info { font-size: 13px; color: #6b7280; }
+
+/* Detail page */
+.detail-header { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
+.detail-header .avatar { width: 64px; height: 64px; border-radius: 50%; background: #e5e7eb; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 24px; color: #6b7280; }
+.detail-header .avatar img { width: 100%; height: 100%; object-fit: cover; }
+.back-btn { padding: 6px 14px; border: 1px solid #d1d5db; border-radius: 6px; background: white; cursor: pointer; font-size: 13px; }
+.back-btn:hover { background: #f3f4f6; }
+
+/* Section card */
+.section { background: white; border-radius: 10px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.section h4 { font-size: 15px; margin-bottom: 12px; color: #374151; }
+
+/* Tags */
+.tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+.tag-blue { background: #dbeafe; color: #1d4ed8; }
+.tag-green { background: #d1fae5; color: #065f46; }
+.tag-red { background: #fee2e2; color: #991b1b; }
+.tag-gray { background: #f3f4f6; color: #6b7280; }
+
+/* Message bubble */
+.msg-bubble { padding: 10px 14px; border-radius: 10px; margin-bottom: 6px; max-width: 80%; }
+.msg-mine { background: #dbeafe; align-self: flex-end; }
+.msg-theirs { background: #f3f4f6; align-self: flex-start; }
+.msg-meta { font-size: 11px; color: #9ca3af; margin-top: 4px; }
+
+/* Actions */
+.btn-sm { padding: 4px 10px; border-radius: 6px; border: none; cursor: pointer; font-size: 12px; }
+.btn-danger { background: #fee2e2; color: #dc2626; }
+.btn-danger:hover { background: #fecaca; }
+.btn-primary { background: #3b82f6; color: white; }
+.btn-primary:hover { background: #2563eb; }
+
+/* Toast */
+.toast { position: fixed; top: 20px; right: 20px; padding: 12px 20px; border-radius: 8px; color: white; font-size: 14px; z-index: 999; animation: fadeIn 0.2s; }
+.toast-success { background: #059669; }
+.toast-error { background: #dc2626; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Empty state */
+.empty { text-align: center; padding: 40px; color: #9ca3af; }
+
+/* Confirm dialog */
+.confirm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 100; }
+.confirm-box { background: white; border-radius: 12px; padding: 24px; min-width: 320px; }
+.confirm-box h4 { margin-bottom: 12px; }
+.confirm-box p { color: #6b7280; margin-bottom: 20px; }
+.confirm-box .actions { display: flex; gap: 8px; justify-content: flex-end; }
+</style>
+</head>
+<body>
+
+<!-- Login -->
+<div id="login-page">
+  <div class="login-box">
+    <h1>🔐 chatadmin</h1>
+    <p>管理后台——用户与聊天管理</p>
+    <input type="email" id="login-email" placeholder="管理员邮箱" value="admin@mailyn.cn" onkeydown="if(event.key==='Enter')document.getElementById('login-pwd').focus()">
+    <div style="position:relative">
+      <input type="password" id="login-pwd" placeholder="管理员密码" onkeydown="if(event.key==='Enter')login()" style="padding-right:40px">
+      <span id="pwd-toggle" onclick="togglePwd()" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:18px;color:#9ca3af;user-select:none">👁️</span>
+    </div>
+    <button onclick="login()">登录</button>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
+<!-- App -->
+<div id="app" class="hidden">
+  <div class="sidebar">
+    <h2>mail<span>yn</span>back</h2>
+    <nav>
+      <a data-page="dashboard" class="active" onclick="showPage('dashboard')">📊 概览</a>
+      <a data-page="users" onclick="showPage('users')">👥 用户</a>
+      <a data-page="conversations" onclick="showPage('conversations')">💬 聊天</a>
+      <a data-page="messages" onclick="showPage('messages')">🔎 消息搜索</a>
+      <a data-page="posts" onclick="showPage('posts')">📝 帖子</a>
+    </nav>
+    <div class="logout" onclick="logout()">退出登录</div>
+  </div>
+  <div class="main">
+    <div class="topbar"><h3 id="page-title">概览</h3><span class="badge" id="conn-badge">已连接</span></div>
+    <div class="content" id="page-content"></div>
+  </div>
+</div>
+
+<script>
+const BASE = "/chatadmin/api"
+let TOKEN = localStorage.getItem("mb_token")
+let currentPage = "dashboard"
+let currentData = {}
+
+// ── API helper ──
+async function api(method, path, body) {
+  const opts = { method, headers: { Authorization: `Bearer ${TOKEN}` } }
+  if (body) { opts.headers["Content-Type"] = "application/json"; opts.body = JSON.stringify(body) }
+  const res = await fetch(BASE + path, opts)
+  if (res.status === 401) { logout(); return null }
+  return res.json()
+}
+
+// ── Login ──
+async function login() {
+  const email = document.getElementById("login-email").value.trim()
+  const pwd = document.getElementById("login-pwd").value
+  const err = document.getElementById("login-error")
+  if (!email) { err.textContent = "请输入邮箱"; return }
+  if (!pwd) { err.textContent = "请输入密码"; return }
+  try {
+    const res = await fetch(BASE + "/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password: pwd }) })
+    const data = await res.json()
+    if (!res.ok) { err.textContent = data.error || "登录失败"; return }
+    err.textContent = ""
+    TOKEN = data.token
+    localStorage.setItem("mb_token", TOKEN)
+    document.getElementById("login-page").classList.add("hidden")
+    document.getElementById("app").classList.remove("hidden")
+    showPage(currentPage)
+  } catch(e) { err.textContent = "网络错误" }
+}
+
+// ── Toggle password visibility ──
+function togglePwd() {
+  const pwd = document.getElementById("login-pwd")
+  const btn = document.getElementById("pwd-toggle")
+  if (pwd.type === "password") {
+    pwd.type = "text"
+    btn.textContent = "🙈"
+  } else {
+    pwd.type = "password"
+    btn.textContent = "👁️"
+  }
+}
+
+function logout() {
+  localStorage.removeItem("mb_token")
+  TOKEN = null
+  document.getElementById("login-page").classList.remove("hidden")
+  document.getElementById("app").classList.add("hidden")
+}
+
+// ── Page routing ──
+function showPage(name) {
+  currentPage = name
+  document.querySelectorAll(".sidebar nav a").forEach(a => a.classList.toggle("active", a.dataset.page === name))
+  const titles = { dashboard: "📊 概览", users: "👥 用户管理", conversations: "💬 聊天管理", messages: "🔎 消息搜索", posts: "📝 帖子管理" }
+  document.getElementById("page-title").textContent = titles[name] || name
+  const fns = { dashboard: renderDashboard, users: () => renderUsers(), conversations: () => renderConversations(), messages: () => renderMessages(), posts: () => renderPosts() }
+  if (fns[name]) fns[name]()
+}
+
+// ── Toast ──
+function toast(msg, type = "info") {
+  const el = document.createElement("div")
+  el.className = `toast toast-${type}`
+  el.textContent = msg
+  document.body.appendChild(el)
+  setTimeout(() => el.remove(), 2500)
+}
+
+// ── Confirm dialog ──
+function confirmDialog(msg) {
+  return new Promise(resolve => {
+    const overlay = document.createElement("div")
+    overlay.className = "confirm-overlay"
+    overlay.innerHTML = `<div class="confirm-box"><h4>确认操作</h4><p>${msg}</p><div class="actions"><button class="btn-sm btn-primary" onclick="this.closest('.confirm-overlay').remove();resolve(false)">取消</button><button class="btn-sm btn-danger" onclick="this.closest('.confirm-overlay').remove();resolve(true)">确认</button></div></div>`
+    window.resolve = resolve
+    document.body.appendChild(overlay)
+  })
+}
+
+// ══════════════════════════════════════ DASHBOARD ══════════════════════════
+
+async function renderDashboard() {
+  const el = document.getElementById("page-content")
+  el.innerHTML = '<div class="empty">加载中...</div>'
+  const stats = await api("GET", "/stats")
+  if (!stats) return
+  el.innerHTML = `
+    <div class="stats-grid">
+      <div class="stat-card"><div class="num">${stats.users}</div><div class="label">👥 用户数</div></div>
+      <div class="stat-card"><div class="num">${stats.conversations}</div><div class="label">💬 聊天数</div></div>
+      <div class="stat-card"><div class="num">${stats.messages}</div><div class="label">✉️ 消息数</div></div>
+      <div class="stat-card"><div class="num">${stats.posts}</div><div class="label">📝 帖子数</div></div>
+    </div>
+    <div class="section">
+      <h4>快速操作</h4>
+      <p style="color:#6b7280;line-height:1.8">
+        左侧导航栏选择功能：<br>
+        👥 <strong>用户管理</strong> — 查看/搜索所有用户，查看用户详细资料和聊天记录<br>
+        💬 <strong>聊天管理</strong> — 浏览所有聊天会话，查看消息内容<br>
+        🔎 <strong>消息搜索</strong> — 按内容关键词搜索消息<br>
+        📝 <strong>帖子管理</strong> — 查看用户发布的帖子
+      </p>
+    </div>
+  `
+}
+
+// ════════════════════════════════════════ USERS ════════════════════════════
+
+async function renderUsers(page = 1) {
+  const q = currentData.userQ || ""
+  const el = document.getElementById("page-content")
+  el.innerHTML = `
+    <div class="search-bar">
+      <input type="text" placeholder="搜索邮箱、昵称、姓名、ID..." id="user-search" value="${q}" onkeydown="if(event.key==='Enter')searchUsers()">
+      <button onclick="searchUsers()">搜索</button>
+    </div>
+    <div id="users-table"><div class="empty">加载中...</div></div>
+  `
+  await loadUsers(page)
+}
+
+function searchUsers() {
+  currentData.userQ = document.getElementById("user-search").value
+  renderUsers(1)
+}
+
+async function loadUsers(page) {
+  const q = currentData.userQ || ""
+  const res = await api("GET", `/users?q=${encodeURIComponent(q)}&page=${page}&limit=20`)
+  if (!res) return
+  const el = document.getElementById("users-table")
+  if (!res.data || !res.data.length) {
+    el.innerHTML = '<div class="empty">暂无用户</div>'
+    return
+  }
+  el.innerHTML = `
+    <table>
+      <tr><th>ID</th><th>邮箱</th><th>昵称</th><th>地区</th><th>消息数</th><th>帖子数</th><th>注册时间</th><th>最后上线</th></tr>
+      ${res.data.map(u => `
+        <tr class="clickable" onclick="showUser('${u.id}')">
+          <td style="font-family:monospace;font-size:11px">${u.id.slice(0,12)}…</td>
+          <td>${esc(u.email)}</td>
+          <td>${esc(u.nickname || '-')}</td>
+          <td>${esc(u.region || '-')}</td>
+          <td>${u.msg_count}</td>
+          <td>${u.post_count}</td>
+          <td>${fmtDate(u.created_at)}</td>
+          <td>${u.last_seen ? fmtDate(u.last_seen) : '-'}</td>
+        </tr>
+      `).join("")}
+    </table>
+    ${pagination(res.total, res.page, res.limit, 'loadUsers')}
+  `
+}
+
+async function showUser(id) {
+  const el = document.getElementById("page-content")
+  el.innerHTML = '<div class="empty">加载中...</div>'
+  const res = await api("GET", `/users/${id}`)
+  if (!res) return
+  const u = res.user
+  el.innerHTML = `
+    <button class="back-btn" onclick="renderUsers()">← 返回用户列表</button>
+    <div class="detail-header" style="margin-top:16px">
+      <div class="avatar">${u.avatar ? `<img src="${esc(u.avatar)}">` : (u.nickname?.[0] || u.email?.[0] || "?")}</div>
+      <div>
+        <div style="font-size:18px;font-weight:600">${esc(u.nickname || u.email)}</div>
+        <div style="color:#6b7280;margin-top:2px">${esc(u.email)} <span class="tag ${u.has_account ? 'tag-green' : 'tag-gray'}">${u.has_account ? '已注册' : '未注册'}</span></div>
+        <div style="color:#9ca3af;font-size:12px;margin-top:4px">ID: ${u.id} · 地区: ${esc(u.region || '-')} · 性别: ${u.gender === 0 ? '男' : u.gender === 1 ? '女' : '-'} · 生日: ${u.birthday || '-'} · 注册: ${fmtDate(u.created_at)}</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h4>聊天会话 (${res.conversations.length})</h4>
+      ${res.conversations.length ? `
+      <table>
+        <tr><th>ID</th><th>类型</th><th>名称</th><th>成员</th><th>消息数</th><th>最后消息</th></tr>
+        ${res.conversations.map(c => `
+          <tr class="clickable" onclick="showConversation(${c.id})">
+            <td>${c.id}</td>
+            <td><span class="tag ${c.type === 'private' ? 'tag-blue' : 'tag-green'}">${esc(c.type)}</span></td>
+            <td>${esc(c.name || '-')}</td>
+            <td>${(c.members || []).map(m => esc(m.nickname || m.email)).join(", ")}</td>
+            <td>${c.msg_count}</td>
+            <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc((c.last_msg||'').slice(0,60))}</td>
+          </tr>
+        `).join("")}
+      </table>` : '<div class="empty">无聊天记录</div>'}
+    </div>
+
+    <div class="section">
+      <h4>最近帖子</h4>
+      ${(u.recent_posts || []).length ? u.recent_posts.map(p => `
+        <div style="padding:8px 0;border-bottom:1px solid #f3f4f6">
+          <span class="tag tag-blue">${esc(p.type)}</span>
+          <span style="color:#374151;margin-left:8px">${esc(p.content || '(空)')}</span>
+          <span style="color:#9ca3af;font-size:11px;float:right">${fmtDate(p.created_at)}</span>
+        </div>
+      `).join("") : '<div class="empty">无帖子</div>'}
+    </div>
+  `
+}
+
+// ═══════════════════════════════════ CONVERSATIONS ═══════════════════════════
+
+async function renderConversations(page = 1) {
+  const el = document.getElementById("page-content")
+  el.innerHTML = `
+    <div class="search-bar">
+      <input type="text" placeholder="搜索会话名称或ID..." id="conv-search" onkeydown="if(event.key==='Enter')searchConvs()">
+      <button onclick="searchConvs()">搜索</button>
+    </div>
+    <div id="convs-table"><div class="empty">加载中...</div></div>
+  `
+  await loadConversations(page)
+}
+
+function searchConvs() {
+  currentData.convQ = document.getElementById("conv-search").value
+  renderConversations(1)
+}
+
+async function loadConversations(page) {
+  const q = currentData.convQ || ""
+  const res = await api("GET", `/conversations?q=${encodeURIComponent(q)}&page=${page}&limit=20`)
+  if (!res) return
+  const el = document.getElementById("convs-table")
+  if (!res.data || !res.data.length) {
+    el.innerHTML = '<div class="empty">暂无聊天</div>'
+    return
+  }
+  el.innerHTML = `
+    <table>
+      <tr><th>ID</th><th>类型</th><th>名称</th><th>成员</th><th>消息数</th><th>创建时间</th><th>操作</th></tr>
+      ${res.data.map(c => `
+        <tr>
+          <td>${c.id}</td>
+          <td><span class="tag ${c.type === 'private' ? 'tag-blue' : 'tag-green'}">${esc(c.type)}</span></td>
+          <td class="clickable" onclick="showConversation(${c.id})">${esc(c.name || '-')}</td>
+          <td>${(c.members || []).map(m => esc(m.nickname || m.email)).join(", ")}</td>
+          <td>${c.msg_count}</td>
+          <td>${fmtDate(c.created_at)}</td>
+          <td><button class="btn-sm btn-danger" onclick="deleteConv(${c.id})">删除</button></td>
+        </tr>
+      `).join("")}
+    </table>
+    ${pagination(res.total, res.page, res.limit, 'loadConversations')}
+  `
+}
+
+async function showConversation(id) {
+  const el = document.getElementById("page-content")
+  el.innerHTML = '<div class="empty">加载中...</div>'
+  const res = await api("GET", `/conversations/${id}/messages?page=1&limit=50`)
+  if (!res) return
+  el.innerHTML = `
+    <button class="back-btn" onclick="renderConversations()">← 返回聊天列表</button>
+    <div style="margin-top:16px">
+      <div class="section">
+        <h4>会话 #${id} · 共 ${res.total} 条消息</h4>
+        <div style="display:flex;flex-direction:column;gap:4px;max-height:600px;overflow-y:auto">
+          ${res.data.length ? [...res.data].reverse().map(m => `
+            <div class="msg-bubble ${m.sender_id === 'admin' ? 'msg-mine' : 'msg-theirs'}" style="align-self:${m.sender_id === 'admin' ? 'flex-end' : 'flex-start'}">
+              <div style="font-size:11px;color:#6b7280;margin-bottom:2px">
+                ${esc(m.sender_nickname || m.sender_email || '未知')} · ${fmtDate(m.created_at)}
+                ${m.type === 'voice' ? '🎤 语音' : ''}
+                <button class="btn-sm btn-danger" style="float:right;margin-left:8px" onclick="deleteMsg(${m.id})">删除</button>
+              </div>
+              <div>${esc(m.type === 'voice' ? '🎤 [' + m.content + '秒]' : (m.content || '(无内容)'))}</div>
+              ${m.media_url ? `<div style="font-size:11px;color:#3b82f6;margin-top:2px">📎 ${esc(m.media_url.slice(0,80))}</div>` : ''}
+            </div>
+          `).join("") : '<div class="empty">暂无消息</div>'}
+        </div>
+        ${pagination(res.total, res.page, res.limit, (p) => loadConvMsgs(id, p))}
+      </div>
+    </div>
+  `
+  currentData.convId = id
+}
+
+async function loadConvMsgs(convId, page) {
+  const res = await api("GET", `/conversations/${convId}/messages?page=${page}&limit=50`)
+  if (!res) return
+  // Re-render with the same structure but different page
+  const el = document.getElementById("page-content")
+  el.innerHTML = `
+    <button class="back-btn" onclick="renderConversations()">← 返回聊天列表</button>
+    <div style="margin-top:16px">
+      <div class="section">
+        <h4>会话 #${convId} · 共 ${res.total} 条消息</h4>
+        <div style="display:flex;flex-direction:column;gap:4px;max-height:600px;overflow-y:auto">
+          ${res.data.length ? [...res.data].reverse().map(m => `
+            <div class="msg-bubble ${m.sender_id === 'admin' ? 'msg-mine' : 'msg-theirs'}" style="align-self:${m.sender_id === 'admin' ? 'flex-end' : 'flex-start'}">
+              <div style="font-size:11px;color:#6b7280;margin-bottom:2px">
+                ${esc(m.sender_nickname || m.sender_email || '未知')} · ${fmtDate(m.created_at)}
+                ${m.type === 'voice' ? '🎤 语音' : ''}
+                <button class="btn-sm btn-danger" style="float:right;margin-left:8px" onclick="deleteMsg(${m.id})">删除</button>
+              </div>
+              <div>${esc(m.type === 'voice' ? '🎤 [' + m.content + '秒]' : (m.content || '(无内容)'))}</div>
+              ${m.media_url ? `<div style="font-size:11px;color:#3b82f6;margin-top:2px">📎 ${esc(m.media_url.slice(0,80))}</div>` : ''}
+            </div>
+          `).join("") : '<div class="empty">暂无消息</div>'}
+        </div>
+        ${pagination(res.total, res.page, res.limit, (p) => loadConvMsgs(convId, p))}
+      </div>
+    </div>
+  `
+}
+
+async function deleteConv(id) {
+  if (!confirm(`确定删除会话 #${id} 及其所有消息？`)) return
+  await api("DELETE", `/conversations/${id}`)
+  toast("已删除", "success")
+  renderConversations()
+}
+
+async function deleteMsg(id) {
+  await api("DELETE", `/messages/${id}`)
+  toast("已删除", "success")
+  if (currentData.convId) showConversation(currentData.convId)
+  else renderConversations()
+}
+
+// ══════════════════════════════════════ MESSAGES ══════════════════════════════
+
+async function renderMessages(page = 1) {
+  const el = document.getElementById("page-content")
+  el.innerHTML = `
+    <div class="search-bar">
+      <input type="text" placeholder="搜索消息内容..." id="msg-search" onkeydown="if(event.key==='Enter')searchMsgs()">
+      <button onclick="searchMsgs()">搜索</button>
+    </div>
+    <div id="msgs-table"><div class="empty">输入关键词搜索消息</div></div>
+  `
+}
+
+function searchMsgs() {
+  currentData.msgQ = document.getElementById("msg-search").value
+  if (!currentData.msgQ) return
+  loadMessages(1)
+}
+
+async function loadMessages(page) {
+  const q = currentData.msgQ || ""
+  const res = await api("GET", `/messages/search?q=${encodeURIComponent(q)}&page=${page}&limit=20`)
+  if (!res) return
+  const el = document.getElementById("msgs-table")
+  if (!res.data || !res.data.length) {
+    el.innerHTML = '<div class="empty">无匹配消息</div>'
+    return
+  }
+  el.innerHTML = `
+    <table>
+      <tr><th>会话</th><th>发送者</th><th>内容</th><th>时间</th><th>操作</th></tr>
+      ${res.data.map(m => `
+        <tr>
+          <td><a href="javascript:showConversation(${m.conversation_id})" style="color:#3b82f6">#${m.conversation_id}</a></td>
+          <td>${esc(m.sender_nickname || m.sender_email || '未知')}</td>
+          <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(m.type === 'voice' ? '🎤 语音消息' : (m.content || ''))}</td>
+          <td>${fmtDate(m.created_at)}</td>
+          <td><button class="btn-sm btn-danger" onclick="deleteMsg(${m.id})">删除</button></td>
+        </tr>
+      `).join("")}
+    </table>
+    ${pagination(res.total, res.page, res.limit, 'loadMessages')}
+  `
+}
+
+// ═══════════════════════════════════════ POSTS ═══════════════════════════════
+
+async function renderPosts(page = 1) {
+  const el = document.getElementById("page-content")
+  el.innerHTML = '<div id="posts-table"><div class="empty">加载中...</div></div>'
+  const res = await api("GET", `/posts?page=${page}&limit=20`)
+  if (!res) return
+  const pel = document.getElementById("posts-table")
+  if (!res.data || !res.data.length) {
+    pel.innerHTML = '<div class="empty">暂无帖子</div>'
+    return
+  }
+  pel.innerHTML = `
+    <table>
+      <tr><th>ID</th><th>用户</th><th>类型</th><th>内容</th><th>时间</th><th>可见性</th></tr>
+      ${res.data.map(p => `
+        <tr>
+          <td>${p.id}</td>
+          <td class="clickable" onclick="showUser('${p.customer_id}')">${esc(p.nickname || p.email || p.customer_id.slice(0,12))}</td>
+          <td><span class="tag tag-blue">${esc(p.type)}</span></td>
+          <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc((p.content||'').slice(0,80))}</td>
+          <td>${fmtDate(p.created_at)}</td>
+          <td><span class="tag ${p.visibility === 'public' ? 'tag-green' : 'tag-gray'}">${esc(p.visibility)}</span></td>
+        </tr>
+      `).join("")}
+    </table>
+    ${pagination(res.total, res.page, res.limit, 'renderPosts')}
+  `
+}
+
+// ══════════════════════════════════════ UTILS ══════════════════════════════════
+
+function esc(s) {
+  if (!s) return s === 0 ? '0' : ''
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+}
+
+function fmtDate(d) {
+  if (!d) return '-'
+  const dt = new Date(d)
+  // Show relative time for today
+  const now = new Date()
+  const diff = now - dt
+  if (diff < 60000) return '刚刚'
+  if (diff < 3600000) return Math.floor(diff/60000) + '分钟前'
+  if (diff < 86400000) return Math.floor(diff/3600000) + '小时前'
+  return dt.toLocaleDateString('zh-CN') + ' ' + dt.toLocaleTimeString('zh-CN', { hour:'2-digit', minute:'2-digit' })
+}
+
+function pagination(total, page, limit, fn) {
+  const pages = Math.ceil(total / limit)
+  if (pages <= 1) return ''
+  return `
+    <div class="pagination">
+      <button onclick="${fn}(${page-1})" ${page<=1?'disabled':''}>上一页</button>
+      <span class="info">第 ${page}/${pages} 页 · 共 ${total} 条</span>
+      <button onclick="${fn}(${page+1})" ${page>=pages?'disabled':''}>下一页</button>
+    </div>
+  `
+}
+
+// ══════════════════════════════════════ INIT ══════════════════════════════════
+
+if (TOKEN) {
+  fetch(BASE + "/check", { headers: { Authorization: `Bearer ${TOKEN}` } })
+    .then(r => { if (r.ok) { document.getElementById("login-page").classList.add("hidden"); document.getElementById("app").classList.remove("hidden"); showPage("dashboard") } })
+    .catch(() => {})
+}
+</script>
+</body>
+</html>
