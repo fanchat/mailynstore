@@ -21,10 +21,8 @@ mailyn.cn:80 {
 	reverse_proxy @admin localhost:7777
 	reverse_proxy @ws-call localhost:3001
 	# 产品图片、头像、社交媒体文件——Caddy 直接从文件系统读
-	root * /home/ding/mailyns/medusa/apps/backend/uploads
-	@file_uploads path /uploads/*
-	handle @file_uploads {
-		rewrite * /{path.relative}
+	handle_path /uploads/* {
+		root * /home/ding/mailyns/medusa/apps/backend/uploads
 		file_server browse
 	}
 	reverse_proxy localhost:8000
@@ -47,10 +45,8 @@ mailyn.cn:8443 {
 	reverse_proxy @admin localhost:7777
 	reverse_proxy @ws-call localhost:3001
 	# 产品图片、头像、社交媒体文件——Caddy 直接从文件系统读
-	root * /home/ding/mailyns/medusa/apps/backend/uploads
-	@file_uploads path /uploads/*
-	handle @file_uploads {
-		rewrite * /{path.relative}
+	handle_path /uploads/* {
+		root * /home/ding/mailyns/medusa/apps/backend/uploads
 		file_server browse
 	}
 	reverse_proxy localhost:8000
