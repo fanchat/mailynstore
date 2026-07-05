@@ -18,11 +18,12 @@ mailyn.cn:80 {
 	}
 	@admin {
 		path /admin*
+		path /chatadmin*
 	}
 	reverse_proxy @umami localhost:3000
 	reverse_proxy @uploads localhost:9000
-	reverse_proxy @ws-call localhost:3001
 	reverse_proxy @admin localhost:7777
+	reverse_proxy @ws-call localhost:3001
 	reverse_proxy localhost:8000
 }
 
@@ -40,11 +41,12 @@ mailyn.cn:8443 {
 	}
 	@admin {
 		path /admin*
+		path /chatadmin*
 	}
 	reverse_proxy @umami localhost:3000
 	reverse_proxy @uploads localhost:9000
-	reverse_proxy @ws-call localhost:3001
 	reverse_proxy @admin localhost:7777
+	reverse_proxy @ws-call localhost:3001
 	reverse_proxy localhost:8000
 }
 
