@@ -10,9 +10,6 @@ mailyn.cn:80 {
 		path /api/send
 		path /api/collect
 	}
-	@uploads {
-		path /uploads/*
-	}
 	@ws-call {
 		path /ws-call*
 	}
@@ -21,9 +18,15 @@ mailyn.cn:80 {
 		path /chatadmin*
 	}
 	reverse_proxy @umami localhost:3000
-	reverse_proxy @uploads localhost:9000
 	reverse_proxy @admin localhost:7777
 	reverse_proxy @ws-call localhost:3001
+	# 产品图片、头像、社交媒体文件——Caddy 直接从文件系统读
+	root * /home/ding/mailyns/medusa/apps/backend/uploads
+	@file_uploads path /uploads/*
+	handle @file_uploads {
+		rewrite * /{path.relative}
+		file_server browse
+	}
 	reverse_proxy localhost:8000
 }
 
@@ -33,9 +36,6 @@ mailyn.cn:8443 {
 		path /api/send
 		path /api/collect
 	}
-	@uploads {
-		path /uploads/*
-	}
 	@ws-call {
 		path /ws-call*
 	}
@@ -44,9 +44,15 @@ mailyn.cn:8443 {
 		path /chatadmin*
 	}
 	reverse_proxy @umami localhost:3000
-	reverse_proxy @uploads localhost:9000
 	reverse_proxy @admin localhost:7777
 	reverse_proxy @ws-call localhost:3001
+	# 产品图片、头像、社交媒体文件——Caddy 直接从文件系统读
+	root * /home/ding/mailyns/medusa/apps/backend/uploads
+	@file_uploads path /uploads/*
+	handle @file_uploads {
+		rewrite * /{path.relative}
+		file_server browse
+	}
 	reverse_proxy localhost:8000
 }
 
