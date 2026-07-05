@@ -20,6 +20,9 @@ export default async function Home() {
 
       {/* Bottom band - 215px, fixed height, cannot be squeezed */}
       <BottomBand />
+
+      {/* Spacer matching bottom nav height — prevents nav from covering banner */}
+      <div className="h-14 flex-shrink-0" />
     </div>
   )
 }
