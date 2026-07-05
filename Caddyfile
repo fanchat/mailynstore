@@ -1,5 +1,29 @@
 {
+	http_port 80
 	https_port 8443
+	auto_https disable_redirects
+}
+
+mailyn.cn:80 {
+	@umami {
+		path /script.js
+		path /api/send
+		path /api/collect
+	}
+	@uploads {
+		path /uploads/*
+	}
+	@ws-call {
+		path /ws-call*
+	}
+	@admin {
+		path /admin*
+	}
+	reverse_proxy @umami localhost:3000
+	reverse_proxy @uploads localhost:9000
+	reverse_proxy @ws-call localhost:3001
+	reverse_proxy @admin localhost:7777
+	reverse_proxy localhost:8000
 }
 
 mailyn.cn:8443 {
