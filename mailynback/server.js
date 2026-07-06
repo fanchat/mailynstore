@@ -394,6 +394,154 @@ app.put("/chatadmin/api/banners/:position", requireAuth, carouselUpload.single("
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
+// ── Broadcast notifications (资讯下发) ──
+
+// List admins for sender name selection
+app.get("/chatadmin/api/admins", requireAuth, async (req, res) => {
+  try {
+    const r = await pool.query(
+      `SELECT id, email, COALESCE(NULLIF(first_name, ''), '') AS first_name,
+              COALESCE(NULLIF(last_name, ''), '') AS last_name
+       FROM "user" WHERE deleted_at IS NULL ORDER BY email`
+    )
+    res.json({ data: r.rows })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// List customer groups for target selection
+app.get("/chatadmin/api/broadcast/groups", requireAuth, async (req, res) => {
+  try {
+    const r = await pool.query(
+      `SELECT cg.id, cg.name,
+              (SELECT COUNT(*)::int FROM customer_group_customer cgc
+               JOIN customer c ON c.id = cgc.customer_id AND c.deleted_at IS NULL
+               WHERE cgc.customer_group_id = cg.id AND cgc.deleted_at IS NULL) AS member_count
+       FROM customer_group cg WHERE cg.deleted_at IS NULL ORDER BY cg.name`
+    )
+    res.json({ data: r.rows })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// List sent broadcast notifications
+app.get("/chatadmin/api/broadcast/notifications", requireAuth, async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page || "1", 10))
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit || "20", 10)))
+    const offset = (page - 1) * limit
+    const [countRes, dataRes] = await Promise.all([
+      pool.query("SELECT COUNT(*)::int AS total FROM broadcast_notifications"),
+      pool.query(
+        "SELECT * FROM broadcast_notifications ORDER BY created_at DESC LIMIT $1 OFFSET $2",
+        [limit, offset]
+      ),
+    ])
+    res.json({ total: countRes.rows[0].total, page, limit, data: dataRes.rows })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// Send a broadcast notification
+app.post("/chatadmin/api/broadcast/notifications", requireAuth, async (req, res) => {
+  try {
+    const { title, content, target_type, target_ids, target_names, sender_name } = req.body
+    if (!content || !content.trim()) {
+      return res.status(400).json({ error: "请填写资讯内容" })
+    }
+
+    let targetCount = 0
+    let targetNameStr = target_names || ""
+
+    if (target_type === "all" || !target_type) {
+      // Count all registered customers
+      const cnt = await pool.query(
+        "SELECT COUNT(*)::int AS c FROM customer WHERE deleted_at IS NULL AND has_account = true"
+      )
+      targetCount = cnt.rows[0].c
+      targetNameStr = "全部注册会员"
+    } else if (target_type === "group") {
+      // Count members in selected groups
+      const ids = Array.isArray(target_ids) ? target_ids : []
+      if (ids.length === 0) {
+        return res.status(400).json({ error: "请选择至少一个群组" })
+      }
+      const cnt = await pool.query(
+        `SELECT COUNT(DISTINCT c.id)::int AS c
+         FROM customer_group_customer cgc
+         JOIN customer c ON c.id = cgc.customer_id AND c.deleted_at IS NULL AND c.has_account = true
+         WHERE cgc.customer_group_id = ANY($1) AND cgc.deleted_at IS NULL`,
+        [ids]
+      )
+      targetCount = cnt.rows[0].c
+    }
+
+    const r = await pool.query(
+      `INSERT INTO broadcast_notifications (title, content, target_type, target_names, sender_name, status, created_by, target_count)
+       VALUES ($1, $2, $3, $4, $5, 'sent', $6, $7) RETURNING *`,
+      [title || "", content.trim(), target_type || "all", targetNameStr, sender_name || "系统通知", req.admin?.email || "", targetCount]
+    )
+
+    res.json({ data: r.rows[0] })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// Delete a broadcast notification
+app.delete("/chatadmin/api/broadcast/notifications/:id", requireAuth, async (req, res) => {
+  try {
+    const r = await pool.query("DELETE FROM broadcast_notifications WHERE id = $1 RETURNING *", [req.params.id])
+    if (!r.rows.length) return res.status(404).json({ error: "not found" })
+    res.json({ ok: true })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// ── Speed test: download a random file to measure tunnel speed ──
+const fs = require("fs")
+app.get("/chatadmin/api/speedtest/download", requireAuth, async (req, res) => {
+  const sizeMB = Math.min(500, Math.max(1, parseInt(req.query.size) || 10))
+  const sizeBytes = sizeMB * 1024 * 1024
+  const tmpDir = path.join(__dirname, "tmp", "speedtest")
+  if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true })
+  const filePath = path.join(tmpDir, `speedtest_${Date.now()}.bin`)
+
+  try {
+    // Stream-write random data to file (256KB chunks to avoid huge memory)
+    const ws = fs.createWriteStream(filePath)
+    let written = 0
+    const CHUNK = 256 * 1024
+
+    function writeNext() {
+      let canContinue = true
+      while (canContinue && written < sizeBytes) {
+        const remaining = sizeBytes - written
+        const chunkSize = Math.min(CHUNK, remaining)
+        canContinue = ws.write(crypto.randomBytes(chunkSize))
+        written += chunkSize
+      }
+      if (written >= sizeBytes) {
+        ws.end()
+      } else {
+        ws.once("drain", writeNext)
+      }
+    }
+    writeNext()
+
+    await new Promise((resolve, reject) => {
+      ws.on("finish", resolve)
+      ws.on("error", reject)
+    })
+
+    // Send file, delete after download completes
+    res.download(filePath, `speedtest_${sizeMB}MB.bin`, (err) => {
+      fs.unlink(filePath, () => {})
+      if (err && !res.headersSent) {
+        res.status(500).json({ error: "download failed" })
+      }
+    })
+  } catch (e) {
+    // Clean up on error
+    try { fs.unlinkSync(filePath) } catch {}
+    res.status(500).json({ error: e.message })
+  }
+})
+
 // ── Start ──
 app.listen(PORT, () => {
   console.log(`[mailynback] Admin panel running on http://localhost:${PORT}`)
