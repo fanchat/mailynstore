@@ -29,11 +29,11 @@ export default function BottomBand() {
   return (
     <div className="h-[215px] flex-shrink-0 border-t border-gray-200 bg-white flex flex-col items-center justify-center text-center px-6">
       <span className="text-sm md:text-base text-gray-600 tracking-wider leading-relaxed max-w-xs">
-        以信相待 · 丰盛人生
+        &nbsp;
       </span>
       <div className="w-8 h-px bg-amber-200/50 mt-3 mb-2" />
       <span className="text-xs text-gray-400 tracking-widest">
-        中国采购 · 德国品质 · 全球供应链
+        &nbsp;
       </span>
     </div>
   )
