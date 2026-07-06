@@ -47,6 +47,7 @@ export default function ChatPage() {
   const router = useRouter()
   const convId = params.id as string
   const countryCode = params.countryCode as string
+  const enableVoice = process.env.NEXT_PUBLIC_ENABLE_VOICE_CALL === "true"
 
   const [conv, setConv] = useState<ConvInfo | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
@@ -81,6 +82,7 @@ export default function ChatPage() {
     convId,
     myId: myId || "",
     jwtToken,
+    enabled: process.env.NEXT_PUBLIC_ENABLE_VOICE_CALL === "true",
     remoteAudioRef,
   })
 
@@ -91,11 +93,10 @@ export default function ChatPage() {
 
   // Fetch conversation info + my identity
   useEffect(() => {
-    fetch("/api/social/conversations")
+    fetch(`/api/social/conversations/${convId}`)
       .then(r => r.json())
       .then(d => {
-        const list = d.data || d
-        const c = list.find((x: any) => String(x.id) === convId)
+        const c = d.data || d
         if (c) setConv(c)
       })
       .catch(() => {})
@@ -419,6 +420,7 @@ export default function ChatPage() {
               <rect x="6" y="40.5" width="36" height="2" rx="0.5" fill="#8B7355" opacity="0.4"/>
             </svg>
           </button>
+          {enableVoice && (
           <button
             onClick={handleStartCall}
             disabled={!otherId || voiceCall.callState === "calling" || voiceCall.callState === "connected"}
@@ -429,6 +431,7 @@ export default function ChatPage() {
               <path d="M1.5 4.5a3 3 0 013-3h1.372c.86 0 1.61.586 1.819 1.42l1.105 4.423a1.875 1.875 0 01-.694 1.955l-1.293.97c-.135.101-.164.249-.126.352a11.285 11.285 0 006.697 6.697c.103.038.25.009.352-.126l.97-1.293a1.875 1.875 0 011.955-.694l4.423 1.105c.834.209 1.42.959 1.42 1.82V19.5a3 3 0 01-3 3h-1.5a16.5 16.5 0 01-16.5-16.5V4.5z" />
             </svg>
           </button>
+          )}
         </div>
 
       {/* Messages框 */}
@@ -551,7 +554,7 @@ export default function ChatPage() {
       </div>
 
       {/* ── Incoming call modal ── */}
-      {voiceCall.incomingCall && (
+      {enableVoice && voiceCall.incomingCall && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
           <div className="bg-white rounded-2xl p-6 w-80 shadow-xl text-center">
             <div className="w-16 h-16 rounded-full bg-gray-200 mx-auto mb-3 overflow-hidden">
@@ -592,7 +595,7 @@ export default function ChatPage() {
       )}
 
       {/* ── Calling overlay (等待对方接听) ── */}
-      {voiceCall.callState === "calling" && remoteUser && (
+      {enableVoice && voiceCall.callState === "calling" && remoteUser && (
         <div className="fixed inset-0 z-50 bg-black/50 flex flex-col items-center justify-center text-white">
           <div className="w-20 h-20 rounded-full bg-gray-600 mb-4 overflow-hidden">
             {remoteUser.avatar ? (
@@ -622,7 +625,7 @@ export default function ChatPage() {
       )}
 
       {/* ── Active call overlay ── */}
-      {voiceCall.callState === "connected" && remoteUser && (
+      {enableVoice && voiceCall.callState === "connected" && remoteUser && (
         <div className="fixed inset-0 z-50 bg-gray-900/90 flex flex-col items-center justify-center text-white">
           <div className="w-20 h-20 rounded-full bg-gray-600 mb-4 overflow-hidden">
             {remoteUser.avatar ? (

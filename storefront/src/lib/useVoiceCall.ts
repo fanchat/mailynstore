@@ -27,10 +27,11 @@ export interface UseVoiceCallOptions {
   convId: string
   myId: string
   jwtToken: string | null
+  enabled?: boolean
   remoteAudioRef?: React.RefObject<HTMLAudioElement | null>
 }
 
-export function useVoiceCall({ convId, myId, jwtToken, remoteAudioRef }: UseVoiceCallOptions) {
+export function useVoiceCall({ convId, myId, jwtToken, enabled = true, remoteAudioRef }: UseVoiceCallOptions) {
   const [callState, setCallState] = useState<CallState>("idle")
   const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(null)
   const [callDuration, setCallDuration] = useState(0)
@@ -213,7 +214,7 @@ export function useVoiceCall({ convId, myId, jwtToken, remoteAudioRef }: UseVoic
 
   // ── Connect Socket.IO ──
   useEffect(() => {
-    if (!jwtToken) {
+    if (!jwtToken || !enabled) {
       return
     }
     const socket = io(SIGNALING_URL, {
