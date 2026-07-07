@@ -24,6 +24,7 @@ mailyn.cn:80 {
 	handle_path /uploads/* {
 		root * /home/ding/mailyns/medusa/apps/backend/uploads
 		file_server browse
+		header Cache-Control "no-cache"
 	}
 	reverse_proxy localhost:8000
 }
@@ -48,6 +49,7 @@ mailyn.cn:8443 {
 	handle_path /uploads/* {
 		root * /home/ding/mailyns/medusa/apps/backend/uploads
 		file_server browse
+		header Cache-Control "no-cache"
 	}
 	reverse_proxy localhost:8000
 }
