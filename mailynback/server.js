@@ -251,6 +251,12 @@ app.get("/chatadmin/api/messages/search", requireAuth, async (req, res) => {
 
 // ── multer for image upload ──
 const multer = require("multer")
+// Ensure upload directories exist
+const uploadDirs = ["carousel", "banners"].map(d =>
+  path.join(__dirname, "public", "uploads", d)
+)
+uploadDirs.forEach(d => { if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true }) })
+
 const carouselUpload = multer({
   dest: path.join(__dirname, "public", "uploads", "carousel"),
   limits: { fileSize: 10 * 1024 * 1024 },
