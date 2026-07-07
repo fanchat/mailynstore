@@ -5,7 +5,9 @@ const crypto = require("crypto")
 require("dotenv").config()
 
 const PORT = parseInt(process.env.PORT || "7777", 10)
-const DB_URL = process.env.DATABASE_URL || "postgres://postgres@localhost:5432/medusa-backend"
+const DB_URL_init = process.env.DATABASE_URL || "postgres://postgres@localhost:5432/medusa-backend"
+// Normalize: if DATABASE_URL uses 'ding' user but that role may not exist, use postgres instead
+const DB_URL = DB_URL_init.replace(/^postgres:\/\/ding@/, "postgres://postgres@")
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123"
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@mailyn.cn"
 
