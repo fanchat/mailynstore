@@ -6,8 +6,17 @@ require("dotenv").config()
 
 const PORT = parseInt(process.env.PORT || "7777", 10)
 const DB_URL_init = process.env.DATABASE_URL || "postgres://postgres@localhost:5432/medusa-backend"
-// Normalize: if DATABASE_URL uses 'ding' user but that role may not exist, use postgres instead
-const DB_URL = DB_URL_init.replace(/^postgres:\/\/ding@/, "postgres://postgres@")
+// Normalize: extract username and replace with 'postgres' if different, to handle
+// cases where the 'ding' role doesn't exist in the target PostgreSQL instance.
+const DB_URL = (() => {
+  try {
+    const u = new URL(DB_URL_init)
+    if (u.protocol === 'postgres:' && u.username && u.username !== 'postgres') {
+      u.username = 'postgres'
+    }
+    return u.toString()
+  } catch (_) { return DB_URL_init }
+})()
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123"
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@mailyn.cn"
 
