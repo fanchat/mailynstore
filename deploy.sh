@@ -40,6 +40,19 @@ echo "[$(date)] New commits detected. Deploying..." | tee -a "$LOG_FILE"
 # Pull latest
 git pull origin master 2>&1 | tee -a "$LOG_FILE"
 
+# ── Fast-path: if only mailynback changed, restart it immediately ──
+CHANGED_FILES=$(git diff --name-only "$LOCAL".."$REMOTE" 2>/dev/null || true)
+if echo "$CHANGED_FILES" | grep -q "^mailynback/"; then
+    echo "[$(date)] mailynback files changed, restarting immediately..." | tee -a "$LOG_FILE"
+    # Restart just mailynback without waiting for heavy builds
+    pm2 restart mailynback 2>&1 | tee -a "$LOG_FILE"
+    # If ONLY mailynback changed, skip the heavy builds
+    if ! echo "$CHANGED_FILES" | grep -qv "^mailynback/"; then
+        echo "[$(date)] Only mailynback changed, deploy complete." | tee -a "$LOG_FILE"
+        exit 0
+    fi
+fi
+
 # Build: serial to avoid OOM (4GB RAM limit), with timeout
 echo "[$(date)] Building Medusa..." | tee -a "$LOG_FILE"
 cd "$PROJECT_DIR/medusa/apps/backend" || exit 1
