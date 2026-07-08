@@ -2,6 +2,7 @@ const express = require("express")
 const { Pool } = require("pg")
 const path = require("path")
 const crypto = require("crypto")
+const fs = require("fs")
 require("dotenv").config()
 
 const PORT = parseInt(process.env.PORT || "7777", 10)
@@ -66,7 +67,7 @@ app.get("/chatadmin/api/check", requireAuth, (req, res) => {
   res.json({ ok: true })
 })
 
-// ── Dashboard stats ──
+// ── Dashboard stats
 app.get("/chatadmin/api/stats", requireAuth, async (req, res) => {
   try {
     const [users, convs, msgs, posts] = await Promise.all([
@@ -510,7 +511,6 @@ app.delete("/chatadmin/api/broadcast/notifications/:id", requireAuth, async (req
 })
 
 // ── Speed test: download a random file to measure tunnel speed ──
-const fs = require("fs")
 app.get("/chatadmin/api/speedtest/download", requireAuth, async (req, res) => {
   const sizeMB = Math.min(500, Math.max(1, parseInt(req.query.size) || 10))
   const sizeBytes = sizeMB * 1024 * 1024
